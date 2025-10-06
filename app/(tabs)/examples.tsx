@@ -1,0 +1,538 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  TextInput,
+  Button,
+  Pressable,
+  Modal,
+  Text,
+  Animated,
+  PanResponder,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small';
+
+interface BottomSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  height: number;
+  children: React.ReactNode;
+}
+
+const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, height, children }) => {
+  const translateY = useRef(new Animated.Value(height)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 125) {
+          closeSheet();
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 20,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  const openSheet = () => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        damping: 20,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeSheet = () => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: height,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
+
+  useEffect(() => {
+    if (visible) {
+      openSheet();
+    } else {
+      translateY.setValue(height);
+      backdropOpacity.setValue(0);
+    }
+  }, [visible]);
+
+  return (
+    <Modal
+      transparent={true}
+      visible={visible}
+      onRequestClose={closeSheet}
+    >
+      <KeyboardAvoidingView
+        style={styles.modalContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable onPress={closeSheet} style={styles.backdrop}>
+          <Animated.View
+            style={[
+              styles.backdropAnimated,
+              {
+                opacity: backdropOpacity,
+              },
+            ]}
+          />
+        </Pressable>
+
+        <Animated.View
+          style={[
+            styles.modalContent,
+            {
+              height,
+              transform: [{ translateY }],
+            },
+          ]}
+          {...panResponder.panHandlers}
+        >
+          <View style={styles.handle} />
+          {children}
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+};
+
+export default function ExamplesScreen() {
+  const [activeExample, setActiveExample] = useState<ExampleType | null>(null);
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+
+  const getSheetHeight = (type: ExampleType): number => {
+    switch (type) {
+      case 'actions': return 300;
+      case 'form': return 450;
+      case 'scroll': return 600;
+      case 'large': return 700;
+      case 'small': return 200;
+      default: return 400;
+    }
+  };
+
+  const renderSheetContent = () => {
+    switch (activeExample) {
+      case 'actions':
+        return (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Choose an Action</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.primaryButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+            >
+              <Text style={styles.buttonText}>Share</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.secondaryButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+            >
+              <Text style={styles.secondaryButtonText}>Save to Gallery</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.dangerButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+            >
+              <Text style={styles.buttonText}>Delete</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.cancelButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+              onPress={() => setActiveExample(null)}
+            >
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        );
+
+      case 'form':
+        return (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Contact Us</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Your Name"
+              value={formData.name}
+              onChangeText={(text) => setFormData({ ...formData, name: text })}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Email Address"
+              keyboardType="email-address"
+              value={formData.email}
+              onChangeText={(text) => setFormData({ ...formData, email: text })}
+            />
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Your Message"
+              multiline
+              numberOfLines={4}
+              value={formData.message}
+              onChangeText={(text) => setFormData({ ...formData, message: text })}
+            />
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.primaryButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+            >
+              <Text style={styles.buttonText}>Submit</Text>
+            </Pressable>
+          </View>
+        );
+
+      case 'scroll':
+        return (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Select a Country</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {['United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Spain', 'Italy',
+                'Japan', 'China', 'India', 'Brazil', 'Mexico', 'Australia', 'New Zealand',
+                'South Korea', 'Singapore', 'Netherlands', 'Belgium', 'Sweden', 'Norway'].map((country) => (
+                <Pressable
+                  key={country}
+                  style={({ pressed }) => [
+                    styles.listItem,
+                    { backgroundColor: pressed ? '#F2F2F7' : 'transparent' }
+                  ]}
+                >
+                  <Text style={styles.listItemText}>{country}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        );
+
+      case 'large':
+        return (
+          <ScrollView style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Terms of Service</Text>
+            <Text style={styles.bodyText}>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+              {'\n\n'}
+              Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+              {'\n\n'}
+              Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.
+              {'\n\n'}
+              Totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
+              {'\n\n'}
+              Sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.primaryButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+            >
+              <Text style={styles.buttonText}>Accept</Text>
+            </Pressable>
+          </ScrollView>
+        );
+
+      case 'small':
+        return (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Quick Settings</Text>
+            <View style={styles.row}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  { opacity: pressed ? 0.6 : 1 }
+                ]}
+              >
+                <Text style={styles.iconButtonText}>🌙</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  { opacity: pressed ? 0.6 : 1 }
+                ]}
+              >
+                <Text style={styles.iconButtonText}>🔔</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  { opacity: pressed ? 0.6 : 1 }
+                ]}
+              >
+                <Text style={styles.iconButtonText}>⚙️</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.iconButton,
+                  { opacity: pressed ? 0.6 : 1 }
+                ]}
+              >
+                <Text style={styles.iconButtonText}>📱</Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.mainTitle}>Bottom Sheet Examples</Text>
+
+      <ScrollView style={styles.examplesList}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('actions')}
+        >
+          <Text style={styles.exampleButtonText}>Action Buttons (300px)</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('form')}
+        >
+          <Text style={styles.exampleButtonText}>Form Input (450px)</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('scroll')}
+        >
+          <Text style={styles.exampleButtonText}>Scrollable List (600px)</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('large')}
+        >
+          <Text style={styles.exampleButtonText}>Large Content (700px)</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('small')}
+        >
+          <Text style={styles.exampleButtonText}>Small Sheet (200px)</Text>
+        </Pressable>
+      </ScrollView>
+
+      {activeExample && (
+        <CustomBottomSheet
+          visible={!!activeExample}
+          onClose={() => setActiveExample(null)}
+          height={getSheetHeight(activeExample)}
+        >
+          {renderSheetContent()}
+        </CustomBottomSheet>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+    padding: 20,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    marginTop: 50,
+    textAlign: 'center',
+  },
+  examplesList: {
+    flex: 1,
+  },
+  exampleButton: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  exampleButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backdropAnimated: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetContent: {
+    flex: 1,
+  },
+  sheetTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
+  },
+  actionButton: {
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  primaryButton: {
+    backgroundColor: '#007AFF',
+  },
+  secondaryButton: {
+    backgroundColor: '#F2F2F7',
+  },
+  dangerButton: {
+    backgroundColor: '#FF3B30',
+  },
+  cancelButton: {
+    backgroundColor: '#F2F2F7',
+    marginTop: 5,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  secondaryButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  listItem: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  listItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  bodyText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#666',
+    marginBottom: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  iconButton: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconButtonText: {
+    fontSize: 24,
+  },
+});
