@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+lib/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+*.log
+
+# Testing
+coverage/
+
+# npm/yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/

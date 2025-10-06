@@ -1,0 +1,49 @@
+{
+  "name": "rn-modal-bottom-sheet",
+  "version": "1.0.1",
+  "description": "A performant, gesture-enabled bottom sheet component for React Native",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "jest",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "keywords": [
+    "react-native",
+    "bottom-sheet",
+    "modal",
+    "sheet",
+    "gesture",
+    "animated",
+    "ios",
+    "android",
+    "typescript"
+  ],
+  "author": "Christi10",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christi10/ModalSheet.git"
+  },
+  "homepage": "https://github.com/christi10/ModalSheet#readme",
+  "bugs": {
+    "url": "https://github.com/christi10/ModalSheet/issues"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-native": ">=0.60.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-native": "^0.70.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "lib",
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}
