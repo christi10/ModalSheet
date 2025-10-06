@@ -1,150 +1,32 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  StyleSheet,
-  View,
-  Button,
-  TouchableOpacity,
-  Alert,
-  Modal,
-  Text,
-  Animated,
-  PanResponder,
-  Dimensions,
-  TouchableWithoutFeedback
-} from 'react-native';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SHEET_HEIGHT = 400;
+import React from 'react';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
-  const [modalVisible, setModalVisible] = useState(false);
-  const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          translateY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 125) {
-          closeModal();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            damping: 20,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  const openModal = () => {
-    setModalVisible(true);
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 20,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const closeModal = () => {
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: SHEET_HEIGHT,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setModalVisible(false);
-    });
-  };
-
-  useEffect(() => {
-    if (!modalVisible) {
-      translateY.setValue(SHEET_HEIGHT);
-      backdropOpacity.setValue(0);
-    }
-  }, [modalVisible]);
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.mainTitle}>
-        Bottom Sheet Demo
+      <Text style={styles.title}>Welcome to ModalSheet</Text>
+      <Text style={styles.subtitle}>
+        A powerful React Native modal sheet component with smooth animations and gesture support.
       </Text>
 
-      <Button title="Open Bottom Sheet" onPress={openModal} />
+      <View style={styles.features}>
+        <Text style={styles.featureTitle}>✨ Features</Text>
+        <Text style={styles.feature}>• Smooth gesture-driven animations</Text>
+        <Text style={styles.feature}>• Spring physics for natural feel</Text>
+        <Text style={styles.feature}>• Backdrop with tap-to-dismiss</Text>
+        <Text style={styles.feature}>• Customizable content and styling</Text>
+        <Text style={styles.feature}>• TypeScript support</Text>
+      </View>
 
-      <TouchableOpacity style={styles.testButton} onPress={() => Alert.alert('Test', 'Background button clicked!')}>
-        <Text style={styles.testButtonText}>Test Background Button</Text>
-      </TouchableOpacity>
-
-      <Modal
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={closeModal}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push('/examples')}
       >
-        <View style={styles.modalContainer}>
-          <TouchableWithoutFeedback onPress={closeModal}>
-            <Animated.View
-              style={[
-                styles.backdrop,
-                {
-                  opacity: backdropOpacity,
-                },
-              ]}
-            />
-          </TouchableWithoutFeedback>
-
-          <Animated.View
-            style={[
-              styles.modalContent,
-              {
-                transform: [{ translateY }],
-              },
-            ]}
-            {...panResponder.panHandlers}
-          >
-            <View style={styles.handle} />
-
-            <Text style={styles.modalTitle}>
-              Welcome to Bottom Sheet
-            </Text>
-
-            <Text style={styles.text}>
-              This is a gesture-enabled bottom sheet with:
-            </Text>
-
-            <View style={styles.featureList}>
-              <Text style={styles.feature}>• Drag down to close</Text>
-              <Text style={styles.feature}>• Tap backdrop to dismiss</Text>
-              <Text style={styles.feature}>• Smooth opacity animations</Text>
-              <Text style={styles.feature}>• Spring physics</Text>
-            </View>
-
-            <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Modal>
+        <Text style={styles.buttonText}>View Examples</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -152,83 +34,51 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  mainTitle: {
-    marginBottom: 30,
+  title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
-  },
-  testButton: {
-    backgroundColor: '#34C759',
-    padding: 16,
-    borderRadius: 10,
-    marginTop: 20,
-  },
-  testButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
-    height: SHEET_HEIGHT,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#DDD',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
-    color: '#333',
   },
-  text: {
+  subtitle: {
     fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 20,
     color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+    paddingHorizontal: 20,
   },
-  featureList: {
-    marginBottom: 30,
+  features: {
+    alignSelf: 'stretch',
+    marginBottom: 40,
+  },
+  featureTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
   },
   feature: {
     fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 10,
     color: '#666',
+    marginBottom: 8,
+    lineHeight: 24,
   },
-  closeButton: {
+  button: {
     backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
   },
-  closeButtonText: {
-    color: 'white',
+  buttonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
