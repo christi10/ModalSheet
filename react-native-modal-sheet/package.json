@@ -1,6 +1,6 @@
 {
   "name": "rn-modal-bottom-sheet",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A performant, gesture-enabled bottom sheet component for React Native",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -44,6 +44,7 @@
     "lib",
     "src",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ]
 }

@@ -8,7 +8,6 @@ import {
   Pressable,
   ViewStyle,
   ModalProps,
-  AccessibilityInfo,
   AccessibilityRole,
   Keyboard,
   Platform,
@@ -35,15 +34,6 @@ export interface ModalSheetAccessibilityProps {
    * Accessibility label for the backdrop
    */
   backdropAccessibilityLabel?: string;
-  /**
-   * Whether to focus on sheet content when opened (default: true)
-   */
-  autoFocus?: boolean;
-
-  /**
-   * Whether the modal should be announced as a live region
-   */
-  accessibilityLiveRegion?: 'none' | 'polite' | 'assertive';
 
   /**
    * Additional accessibility props for the sheet container
@@ -146,9 +136,6 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
   accessibilityLabel = 'Bottom sheet',
   accessibilityHint,
   backdropAccessibilityLabel = 'Close bottom sheet',
-  openAccessibilityAnnouncement = 'Bottom sheet opened',
-  closeAccessibilityAnnouncement = 'Bottom sheet closed',
-  accessibilityLiveRegion = 'polite',
   sheetAccessibilityProps = {},
 }, ref) => {
   const [visible, setVisible] = React.useState(false);
@@ -232,9 +219,9 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
       },
       onPanResponderRelease: (_, gestureState) => {
         translateY.flattenOffset();
-        
+
         // Calculate velocity and distance to determine if we should close
-        const shouldClose = 
+        const shouldClose =
           gestureState.vy > 0.5 || // Fast swipe down
           (gestureState.dy > dragThreshold / 2 && gestureState.vy > 0.1) || // Medium swipe down
           gestureState.dy > dragThreshold; // Slow but long swipe down
