@@ -632,7 +632,15 @@ interface ModalSheetAccessibilityProps {
 
 ## Contributing
 
-Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) first.
+Contributions are welcome! Please read our [contributing guidelines](https://github.com/christi10/ModalSheet/blob/main/.github/CONTRIBUTING.md) first.
+
+## Support
+
+If you find this package helpful, consider supporting its development:
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-☕-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/christi10)
+
+Your support helps maintain and improve this package!
 
 ## License
 
