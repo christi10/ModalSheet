@@ -10,6 +10,9 @@ import {
   ModalProps,
   AccessibilityInfo,
   AccessibilityRole,
+  Keyboard,
+  Platform,
+  Dimensions,
 } from 'react-native';
 
 export interface ModalSheetRef {
@@ -32,27 +35,6 @@ export interface ModalSheetAccessibilityProps {
    * Accessibility label for the backdrop
    */
   backdropAccessibilityLabel?: string;
-
-  /**
-   * Accessibility label for the drag handle
-   */
-  handleAccessibilityLabel?: string;
-
-  /**
-   * Accessibility hint for the drag handle
-   */
-  handleAccessibilityHint?: string;
-
-  /**
-   * Announcement when sheet opens
-   */
-  openAccessibilityAnnouncement?: string;
-
-  /**
-   * Announcement when sheet closes
-   */
-  closeAccessibilityAnnouncement?: string;
-
   /**
    * Whether to focus on sheet content when opened (default: true)
    */
@@ -164,33 +146,108 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
   accessibilityLabel = 'Bottom sheet',
   accessibilityHint,
   backdropAccessibilityLabel = 'Close bottom sheet',
-  handleAccessibilityLabel = 'Drag to close',
-  handleAccessibilityHint = 'Double tap to close, or drag down',
   openAccessibilityAnnouncement = 'Bottom sheet opened',
   closeAccessibilityAnnouncement = 'Bottom sheet closed',
   accessibilityLiveRegion = 'polite',
   sheetAccessibilityProps = {},
 }, ref) => {
   const [visible, setVisible] = React.useState(false);
-  const translateY = useRef(new Animated.Value(height)).current;
+  const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+  const translateY = useRef(new Animated.Value(0)).current; // Initialize with 0, will be set properly in useEffect
   const backdropOpacityAnim = useRef(new Animated.Value(0)).current;
+
+  // Get screen dimensions
+  const screenHeight = Dimensions.get('window').height;
+
+  // Calculate 90% of screen height
+  const maxHeight = screenHeight * 0.9;
+
+  // Always position at bottom - the height will cover the tabs
+  const modalPosition = 0;
+
+  // Keyboard handling
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e: any) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        // Ensure modal is properly positioned at bottom when keyboard hides
+        setTimeout(() => {
+          if (visible) {
+            translateY.setValue(modalPosition);
+          }
+        }, 100);
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener?.remove();
+      keyboardWillHideListener?.remove();
+    };
+  }, [visible, modalPosition]);
+
+  // Calculate minimum height to cover bottom tabs (approximately 30% of screen for safety)
+  const minCoverHeight = screenHeight * 0.3;
+
+  // Adjust height when keyboard is visible - use 90% of screen height
+  const adjustedHeight = React.useMemo(() => {
+    if (keyboardHeight > 0) {
+      // When keyboard is visible, use 90% of screen height
+      return Math.min(maxHeight, screenHeight - keyboardHeight - 50);
+    }
+    // When keyboard is hidden, use minimum height to cover bottom tabs
+    return Math.max(height, minCoverHeight);
+  }, [height, keyboardHeight, maxHeight, screenHeight, minCoverHeight]);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to vertical swipes
+        return Math.abs(gestureState.dy) > Math.abs(gestureState.dx * 3);
+      },
+      onPanResponderGrant: () => {
+        // Capture the starting position when the gesture begins
+        translateY.stopAnimation((value) => {
+          translateY.setOffset(value);
+          translateY.setValue(0);
+        });
+      },
       onPanResponderMove: (_, gestureState) => {
+        // Allow dragging in both directions but with resistance when pulling up
         if (gestureState.dy > 0) {
+          // When dragging down, follow the finger directly
           translateY.setValue(gestureState.dy);
+        } else {
+          // When dragging up, apply resistance (reduce the movement)
+          translateY.setValue(gestureState.dy * 0.3);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > dragThreshold) {
+        translateY.flattenOffset();
+        
+        // Calculate velocity and distance to determine if we should close
+        const shouldClose = 
+          gestureState.vy > 0.5 || // Fast swipe down
+          (gestureState.dy > dragThreshold / 2 && gestureState.vy > 0.1) || // Medium swipe down
+          gestureState.dy > dragThreshold; // Slow but long swipe down
+
+        if (shouldClose) {
           close();
         } else {
+          // Animate back to the open position with spring physics
           Animated.spring(translateY, {
-            toValue: 0,
+            toValue: modalPosition,
             damping: springDamping,
+            stiffness: 500,
+            overshootClamping: true,
             useNativeDriver: true,
           }).start();
         }
@@ -207,22 +264,17 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
         useNativeDriver: true,
       }),
       Animated.spring(translateY, {
-        toValue: 0,
+        toValue: modalPosition,
         damping: springDamping,
         useNativeDriver: true,
       }),
     ]).start(() => {
-      if (openAccessibilityAnnouncement) {
-        AccessibilityInfo.announceForAccessibility(openAccessibilityAnnouncement);
-      }
       onOpen?.();
     });
   };
 
   const close = () => {
-    if (closeAccessibilityAnnouncement) {
-      AccessibilityInfo.announceForAccessibility(closeAccessibilityAnnouncement);
-    }
+
 
     Animated.parallel([
       Animated.timing(backdropOpacityAnim, {
@@ -231,7 +283,7 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
-        toValue: height,
+        toValue: screenHeight + 100, // Move completely off screen + extra margin
         duration: animationDuration * 0.8,
         useNativeDriver: true,
       }),
@@ -248,10 +300,10 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
 
   useEffect(() => {
     if (!visible) {
-      translateY.setValue(height);
+      translateY.setValue(screenHeight + 100);
       backdropOpacityAnim.setValue(0);
     }
-  }, [visible, height]);
+  }, [visible, screenHeight]);
 
   return (
     <Modal
@@ -262,10 +314,7 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
       accessibilityViewIsModal={true}
       {...modalProps}
     >
-      <View
-        style={styles.container}
-        accessibilityLiveRegion={accessibilityLiveRegion}
-      >
+      <View style={styles.container}>
         <Pressable
           onPress={close}
           accessible={true}
@@ -288,15 +337,16 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
           style={[
             styles.sheet,
             {
-              height,
+              height: adjustedHeight,
               backgroundColor,
               borderTopLeftRadius: borderRadius,
               borderTopRightRadius: borderRadius,
-              transform: [{ translateY }],
+              transform: [
+                { translateY: translateY }
+              ],
             },
             containerStyle,
           ]}
-          {...panResponder.panHandlers}
           accessible={true}
           accessibilityRole="none"
           accessibilityLabel={accessibilityLabel}
@@ -304,22 +354,22 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
           importantForAccessibility="yes"
           {...sheetAccessibilityProps}
         >
-          {showHandle && (
+          <View style={styles.handleContainer} {...panResponder.panHandlers}>
+            {showHandle && (
             <Pressable
               onPress={close}
               accessible={true}
               accessibilityRole="button"
-              accessibilityLabel={handleAccessibilityLabel}
-              accessibilityHint={handleAccessibilityHint}
               style={({ pressed }) => [
-                styles.handle,
-                {
-                  backgroundColor: handleColor,
+                  styles.handle,
+                  {
+                    backgroundColor: handleColor,
                   opacity: pressed ? 0.6 : 1,
-                }
-              ]}
-            />
-          )}
+                  }
+                ]}
+              />
+            )}
+          </View>
           <View style={styles.content}>
             {children}
           </View>
@@ -346,15 +396,20 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 20,
   },
+  handleContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    width: '100%',
+    backgroundColor: 'transparent',
+  },
   handle: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 8,
   },
   content: {
     flex: 1,
+    minHeight: 50,
   },
 });
 

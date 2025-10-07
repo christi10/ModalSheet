@@ -12,12 +12,21 @@ import {
   PanResponder,
   Dimensions,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  TouchableOpacity
 } from 'react-native';
+import { NativeViewGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small';
+type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small' | 'draggable';
+
+type DraggableItem = {
+  key: string;
+  label: string;
+  backgroundColor: string;
+};
 
 interface BottomSheetProps {
   visible: boolean;
@@ -30,10 +39,13 @@ const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, heigh
   const translateY = useRef(new Animated.Value(height)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
-  const panResponder = useRef(
+  const handlePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy > 0) {
           translateY.setValue(gestureState.dy);
@@ -100,42 +112,58 @@ const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, heigh
       visible={visible}
       onRequestClose={closeSheet}
     >
-      <KeyboardAvoidingView
-        style={styles.modalContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <Pressable onPress={closeSheet} style={styles.backdrop}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable onPress={closeSheet} style={styles.backdrop}>
+            <Animated.View
+              style={[
+                styles.backdropAnimated,
+                {
+                  opacity: backdropOpacity,
+                },
+              ]}
+            />
+          </Pressable>
+
           <Animated.View
             style={[
-              styles.backdropAnimated,
+              styles.modalContent,
               {
-                opacity: backdropOpacity,
+                height,
+                transform: [{ translateY }],
               },
             ]}
-          />
-        </Pressable>
-
-        <Animated.View
-          style={[
-            styles.modalContent,
-            {
-              height,
-              transform: [{ translateY }],
-            },
-          ]}
-          {...panResponder.panHandlers}
-        >
-          <View style={styles.handle} />
-          {children}
-        </Animated.View>
-      </KeyboardAvoidingView>
+          >
+            <View style={styles.handleArea} {...handlePanResponder.panHandlers}>
+              <View style={styles.handle} />
+            </View>
+            {children}
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
+};
+
+const getColor = (index: number) => {
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
+  return colors[index % colors.length];
 };
 
 export default function ExamplesScreen() {
   const [activeExample, setActiveExample] = useState<ExampleType | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+
+  const initialData: DraggableItem[] = [...Array(8)].map((_, index) => ({
+    key: `item-${index}`,
+    label: `Item ${index + 1}`,
+    backgroundColor: getColor(index),
+  }));
+
+  const [data, setData] = useState(initialData);
 
   const getSheetHeight = (type: ExampleType): number => {
     switch (type) {
@@ -144,6 +172,7 @@ export default function ExamplesScreen() {
       case 'scroll': return 600;
       case 'large': return 700;
       case 'small': return 200;
+      case 'draggable': return 550;
       default: return 400;
     }
   };
@@ -321,6 +350,47 @@ export default function ExamplesScreen() {
           </View>
         );
 
+      case 'draggable':
+        const renderItem = ({ item, drag, isActive }: RenderItemParams<DraggableItem>) => {
+          return (
+            <ScaleDecorator>
+              <TouchableOpacity
+                activeOpacity={1}
+                onLongPress={drag}
+                disabled={isActive}
+                delayLongPress={70}
+                style={[
+                  styles.draggableRowItem,
+                  {
+                    backgroundColor: item.backgroundColor,
+                    opacity: isActive ? 0.5 : 1,
+                    transform: [{ scale: isActive ? 1.02 : 1 }],
+                  },
+                ]}
+              >
+                <Text style={styles.draggableRowText}>{item.label}</Text>
+              </TouchableOpacity>
+            </ScaleDecorator>
+          );
+        };
+
+        return (
+          <View style={{ flex: 1, paddingTop: 10 }}>
+            <Text style={styles.sheetTitle}>Drag & Drop List</Text>
+            <DraggableFlatList
+              data={data}
+              onDragEnd={({ data: newData }) => setData(newData)}
+              keyExtractor={(item) => item.key}
+              renderItem={renderItem}
+              containerStyle={{ flex: 1 }}
+              animationConfig={{
+                damping: 20,
+                stiffness: 100,
+              }}
+            />
+          </View>
+        );
+
       default:
         return null;
     }
@@ -379,6 +449,16 @@ export default function ExamplesScreen() {
           onPress={() => setActiveExample('small')}
         >
           <Text style={styles.exampleButtonText}>Small Sheet (200px)</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('draggable')}
+        >
+          <Text style={styles.exampleButtonText}>🎯 Draggable List (550px)</Text>
         </Pressable>
       </ScrollView>
 
@@ -443,13 +523,17 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 40,
   },
+  handleArea: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   handle: {
     width: 40,
     height: 4,
     backgroundColor: '#DDD',
     borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
   },
   sheetContent: {
     flex: 1,
@@ -534,5 +618,34 @@ const styles = StyleSheet.create({
   },
   iconButtonText: {
     fontSize: 24,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
+    marginTop: -10,
+  },
+  draggableRowItem: {
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginVertical: 6,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  draggableRowText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
