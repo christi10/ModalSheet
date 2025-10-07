@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/christi10/ModalSheet#readme
+    about: Read the documentation for usage instructions
+  - name: 💬 Discussions
+    url: https://github.com/christi10/ModalSheet/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📦 npm Package
+    url: https://www.npmjs.com/package/rn-modal-bottom-sheet
+    about: View the package on npm
