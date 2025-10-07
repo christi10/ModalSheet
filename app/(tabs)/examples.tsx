@@ -17,10 +17,11 @@ import {
 } from 'react-native';
 import { NativeViewGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import ModalSheet, { ModalSheetRef } from '../../react-native-modal-sheet/src';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small' | 'draggable';
+type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small' | 'draggable' | 'snappoints';
 
 type DraggableItem = {
   key: string;
@@ -156,6 +157,8 @@ const getColor = (index: number) => {
 export default function ExamplesScreen() {
   const [activeExample, setActiveExample] = useState<ExampleType | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const snapPointsSheetRef = useRef<ModalSheetRef>(null);
+  const [currentSnapPoint, setCurrentSnapPoint] = useState<number>(50);
 
   const initialData: DraggableItem[] = [...Array(8)].map((_, index) => ({
     key: `item-${index}`,
@@ -460,9 +463,20 @@ export default function ExamplesScreen() {
         >
           <Text style={styles.exampleButtonText}>🎯 Draggable List (550px)</Text>
         </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            styles.snapPointsButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => snapPointsSheetRef.current?.open()}
+        >
+          <Text style={styles.exampleButtonText}>📍 Snap Points (25%, 50%, 90%)</Text>
+        </Pressable>
       </ScrollView>
 
-      {activeExample && (
+      {activeExample && activeExample !== 'snappoints' && (
         <CustomBottomSheet
           visible={!!activeExample}
           onClose={() => setActiveExample(null)}
@@ -471,6 +485,105 @@ export default function ExamplesScreen() {
           {renderSheetContent()}
         </CustomBottomSheet>
       )}
+
+      <ModalSheet
+        ref={snapPointsSheetRef}
+        snapPoints={[25, 50, 90]}
+        initialSnapPointIndex={1}
+        onSnapPointChange={(index, snapPoint) => {
+          setCurrentSnapPoint(snapPoint);
+        }}
+        backgroundColor="#FFFFFF"
+        borderRadius={20}
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.sheetTitle}>📍 Snap Points Demo</Text>
+          <Text style={styles.subtitle}>Current Position: {currentSnapPoint}%</Text>
+
+          <View style={styles.snapPointInfo}>
+            <Text style={styles.infoText}>
+              This modal sheet has three snap points that you can swipe between:
+            </Text>
+            <Text style={[styles.bulletPoint, currentSnapPoint === 25 && styles.activeBullet]}>
+              • 25% - Small peek view
+            </Text>
+            <Text style={[styles.bulletPoint, currentSnapPoint === 50 && styles.activeBullet]}>
+              • 50% - Medium view
+            </Text>
+            <Text style={[styles.bulletPoint, currentSnapPoint === 90 && styles.activeBullet]}>
+              • 90% - Full screen view
+            </Text>
+          </View>
+
+          <View style={styles.controlButtons}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                { opacity: pressed ? 0.7 : 1, backgroundColor: currentSnapPoint === 25 ? '#007AFF' : '#E5E5EA' }
+              ]}
+              onPress={() => snapPointsSheetRef.current?.snapToPoint(0)}
+            >
+              <Text style={[styles.snapButtonText, { color: currentSnapPoint === 25 ? 'white' : '#333' }]}>
+                25%
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                { opacity: pressed ? 0.7 : 1, backgroundColor: currentSnapPoint === 50 ? '#007AFF' : '#E5E5EA' }
+              ]}
+              onPress={() => snapPointsSheetRef.current?.snapToPoint(1)}
+            >
+              <Text style={[styles.snapButtonText, { color: currentSnapPoint === 50 ? 'white' : '#333' }]}>
+                50%
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                { opacity: pressed ? 0.7 : 1, backgroundColor: currentSnapPoint === 90 ? '#007AFF' : '#E5E5EA' }
+              ]}
+              onPress={() => snapPointsSheetRef.current?.snapToPoint(2)}
+            >
+              <Text style={[styles.snapButtonText, { color: currentSnapPoint === 90 ? 'white' : '#333' }]}>
+                90%
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.instructionsBox}>
+            <Text style={styles.instructionsTitle}>💡 How to use:</Text>
+            <Text style={styles.instructionsText}>
+              • Drag the handle up or down to snap between heights{'\n'}
+              • The modal automatically snaps to the nearest point{'\n'}
+              • Use the buttons above for programmatic control{'\n'}
+              • Fast swipes change snap points more quickly
+            </Text>
+          </View>
+
+          {/* Sample content blocks */}
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={styles.contentBlock}>
+              <Text style={styles.contentBlockTitle}>Content Block {i}</Text>
+              <Text style={styles.contentBlockText}>
+                This is sample content to demonstrate scrolling at different snap points.
+                Try expanding the modal to 90% to see all content comfortably.
+              </Text>
+            </View>
+          ))}
+
+          <View style={styles.featureHighlight}>
+            <Text style={styles.featureTitle}>✨ Key Features</Text>
+            <Text style={styles.featureText}>
+              • Percentage-based heights for cross-device compatibility{'\n'}
+              • Smooth spring animations{'\n'}
+              • Velocity-based snap detection{'\n'}
+              • Fully customizable snap points{'\n'}
+              • TypeScript support
+            </Text>
+          </View>
+        </ScrollView>
+      </ModalSheet>
     </View>
   );
 }
@@ -647,5 +760,104 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  snapPointsButton: {
+    backgroundColor: '#34C759',
+  },
+  snapPointInfo: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  infoText: {
+    fontSize: 15,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  bulletPoint: {
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 8,
+    marginVertical: 4,
+    lineHeight: 22,
+  },
+  activeBullet: {
+    color: '#007AFF',
+    fontWeight: '700',
+  },
+  controlButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  snapButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  snapButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  instructionsBox: {
+    backgroundColor: '#E8F4FD',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007AFF',
+  },
+  instructionsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#007AFF',
+    marginBottom: 8,
+  },
+  instructionsText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 22,
+  },
+  contentBlock: {
+    backgroundColor: '#F8F9FA',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  contentBlockTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  contentBlockText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  featureHighlight: {
+    backgroundColor: '#FFF9E6',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFD700',
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#B8860B',
+    marginBottom: 8,
+  },
+  featureText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 22,
   },
 });

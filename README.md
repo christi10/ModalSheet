@@ -11,10 +11,12 @@ A React Native Expo app demonstrating the powerful **React Native Modal Sheet** 
 ## 🚀 Features
 
 - 🎨 **Smooth Animations** - Gesture-driven animations with spring physics
+- 📍 **Snap Points** - Multiple snap points with percentage-based heights
 - 🎯 **Zero Native Dependencies** - Built with React Native's Animated API
 - 📱 **Cross Platform** - Works on both iOS and Android
 - 🎭 **Backdrop Animation** - Independent opacity animation for backdrop
 - 👆 **Gesture Support** - Drag to close with customizable threshold
+- ⬆️ **Swipe Between Heights** - Swipe up/down to snap between different heights
 - 🎨 **Fully Customizable** - Customize colors, dimensions, and animations
 - 📦 **Lightweight** - Minimal overhead, no external dependencies
 - 🎯 **Modern Pressable API** - Uses Pressable for better touch feedback and accessibility
@@ -104,7 +106,11 @@ function App() {
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `children` | `ReactNode` | **Required** | Content to be rendered inside the bottom sheet |
-| `height` | `number` | `400` | Height of the bottom sheet in pixels |
+| `height` | `number` | `400` | Height of the bottom sheet in pixels (ignored if snapPoints provided) |
+| `snapPoints` | `number[]` | - | Snap points as percentages of screen height (e.g., [25, 50, 90]) |
+| `initialSnapPointIndex` | `number` | `0` | Initial snap point index to open to |
+| `enableSnapping` | `boolean` | `true` | Enable snapping between points |
+| `onSnapPointChange` | `(index, snapPoint) => void` | - | Callback when snap point changes |
 | `onClose` | `() => void` | - | Callback when the sheet is closed |
 | `onOpen` | `() => void` | - | Callback when the sheet is opened |
 | `backgroundColor` | `string` | `'white'` | Background color of the sheet |
@@ -120,6 +126,7 @@ function App() {
 |--------|-------------|
 | `open()` | Opens the bottom sheet |
 | `close()` | Closes the bottom sheet |
+| `snapToPoint(index)` | Programmatically snap to a specific snap point by index |
 
 ## 🎨 Customization Examples
 
@@ -136,6 +143,37 @@ function App() {
 >
   <Text style={{ color: 'white' }}>Dark Theme Sheet</Text>
 </ModalSheet>
+```
+
+### With Snap Points
+
+```tsx
+import { useRef, useState } from 'react';
+
+function App() {
+  const sheetRef = useRef<ModalSheetRef>(null);
+  const [currentSnap, setCurrentSnap] = useState(25);
+
+  return (
+    <>
+      <Button title="Open" onPress={() => sheetRef.current?.open()} />
+      <Button title="Expand" onPress={() => sheetRef.current?.snapToPoint(2)} />
+
+      <ModalSheet
+        ref={sheetRef}
+        snapPoints={[25, 50, 90]}
+        initialSnapPointIndex={0}
+        onSnapPointChange={(index, snapPoint) => {
+          setCurrentSnap(snapPoint);
+          console.log(`Now at ${snapPoint}%`);
+        }}
+      >
+        <Text>Current height: {currentSnap}%</Text>
+        <Text>Swipe up or down to change!</Text>
+      </ModalSheet>
+    </>
+  );
+}
 ```
 
 ### With Scrollable Content

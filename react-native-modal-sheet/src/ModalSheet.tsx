@@ -12,11 +12,19 @@ import {
   Keyboard,
   Platform,
   Dimensions,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export interface ModalSheetRef {
   open: () => void;
   close: () => void;
+  snapToPoint: (index: number) => void;
 }
 
 export interface ModalSheetAccessibilityProps {
@@ -53,8 +61,34 @@ export interface ModalSheetProps extends ModalSheetAccessibilityProps {
 
   /**
    * Height of the bottom sheet (default: 400)
+   * Ignored if snapPoints are provided
    */
   height?: number;
+
+  /**
+   * Snap points as percentages of screen height (0-100)
+   * Example: [25, 50, 90] creates snap points at 25%, 50%, and 90% of screen height
+   * If provided, this overrides the height prop
+   */
+  snapPoints?: number[];
+
+  /**
+   * Initial snap point index (default: 0)
+   * Determines which snap point to open to initially
+   */
+  initialSnapPointIndex?: number;
+
+  /**
+   * Enable snapping between points (default: true when snapPoints are provided)
+   */
+  enableSnapping?: boolean;
+
+  /**
+   * Callback when snap point changes
+   * @param index - The index of the current snap point
+   * @param snapPoint - The percentage value of the snap point
+   */
+  onSnapPointChange?: (index: number, snapPoint: number) => void;
 
   /**
    * Callback when the sheet is closed
@@ -120,6 +154,10 @@ export interface ModalSheetProps extends ModalSheetAccessibilityProps {
 const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
   children,
   height = 400,
+  snapPoints,
+  initialSnapPointIndex = 0,
+  enableSnapping = true,
+  onSnapPointChange,
   onClose,
   onOpen,
   backgroundColor = 'white',
@@ -140,6 +178,7 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
 }, ref) => {
   const [visible, setVisible] = React.useState(false);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+  const [currentSnapPointIndex, setCurrentSnapPointIndex] = React.useState(initialSnapPointIndex);
   const translateY = useRef(new Animated.Value(0)).current; // Initialize with 0, will be set properly in useEffect
   const backdropOpacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -148,6 +187,20 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
 
   // Calculate 90% of screen height
   const maxHeight = screenHeight * 0.9;
+
+  // Validate and sort snap points
+  const validatedSnapPoints = React.useMemo(() => {
+    if (!snapPoints || snapPoints.length === 0) return null;
+    return [...snapPoints]
+      .filter(point => point > 0 && point <= 100)
+      .sort((a, b) => a - b);
+  }, [snapPoints]);
+
+  // Calculate snap point heights in pixels
+  const snapPointHeights = React.useMemo(() => {
+    if (!validatedSnapPoints) return null;
+    return validatedSnapPoints.map(point => (screenHeight * point) / 100);
+  }, [validatedSnapPoints, screenHeight]);
 
   // Always position at bottom - the height will cover the tabs
   const modalPosition = 0;
@@ -183,15 +236,67 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
   // Calculate minimum height to cover bottom tabs (approximately 30% of screen for safety)
   const minCoverHeight = screenHeight * 0.3;
 
+  // Get current height based on snap points or default height
+  const currentHeight = React.useMemo(() => {
+    if (snapPointHeights && snapPointHeights.length > 0) {
+      const index = Math.min(currentSnapPointIndex, snapPointHeights.length - 1);
+      return snapPointHeights[index];
+    }
+    return height;
+  }, [snapPointHeights, currentSnapPointIndex, height]);
+
   // Adjust height when keyboard is visible - use 90% of screen height
   const adjustedHeight = React.useMemo(() => {
     if (keyboardHeight > 0) {
       // When keyboard is visible, use 90% of screen height
       return Math.min(maxHeight, screenHeight - keyboardHeight - 50);
     }
-    // When keyboard is hidden, use minimum height to cover bottom tabs
-    return Math.max(height, minCoverHeight);
-  }, [height, keyboardHeight, maxHeight, screenHeight, minCoverHeight]);
+    // When keyboard is hidden, use snap point height or minimum height to cover bottom tabs
+    return Math.max(currentHeight, minCoverHeight);
+  }, [currentHeight, keyboardHeight, maxHeight, screenHeight, minCoverHeight]);
+
+  // Helper function to find nearest snap point
+  const findNearestSnapPoint = (dragDistance: number, velocity: number): number => {
+    if (!snapPointHeights || !validatedSnapPoints || !enableSnapping) {
+      return currentSnapPointIndex;
+    }
+
+    const currentHeightPx = snapPointHeights[currentSnapPointIndex];
+
+    // If dragging down significantly, check if should close or go to lower snap point
+    if (dragDistance > 0) {
+      // Fast downward swipe or exceeded threshold - close
+      if (velocity > 0.5 || dragDistance > dragThreshold) {
+        return -1; // Indicates should close
+      }
+
+      // Find next lower snap point
+      if (currentSnapPointIndex > 0) {
+        const prevHeight = snapPointHeights[currentSnapPointIndex - 1];
+        const midPoint = (currentHeightPx - prevHeight) / 2;
+
+        if (dragDistance > midPoint || velocity > 0.2) {
+          return currentSnapPointIndex - 1;
+        }
+      } else if (dragDistance > dragThreshold / 2) {
+        return -1; // Close if at lowest snap point and dragged enough
+      }
+    } else {
+      // Dragging up - check if should go to higher snap point
+      const absDrag = Math.abs(dragDistance);
+
+      if (currentSnapPointIndex < snapPointHeights.length - 1) {
+        const nextHeight = snapPointHeights[currentSnapPointIndex + 1];
+        const midPoint = (nextHeight - currentHeightPx) / 2;
+
+        if (absDrag > midPoint || velocity < -0.2) {
+          return currentSnapPointIndex + 1;
+        }
+      }
+    }
+
+    return currentSnapPointIndex;
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -208,42 +313,112 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
         });
       },
       onPanResponderMove: (_, gestureState) => {
-        // Allow dragging in both directions but with resistance when pulling up
-        if (gestureState.dy > 0) {
-          // When dragging down, follow the finger directly
-          translateY.setValue(gestureState.dy);
+        if (snapPointHeights && enableSnapping) {
+          // With snap points, allow more flexible dragging
+          if (gestureState.dy > 0) {
+            // Dragging down - follow finger directly
+            translateY.setValue(gestureState.dy);
+          } else {
+            // Dragging up - follow finger with slight resistance
+            const canDragUp = currentSnapPointIndex < snapPointHeights.length - 1;
+            if (canDragUp) {
+              translateY.setValue(gestureState.dy * 0.8);
+            } else {
+              // At highest point, add more resistance
+              translateY.setValue(gestureState.dy * 0.3);
+            }
+          }
         } else {
-          // When dragging up, apply resistance (reduce the movement)
-          translateY.setValue(gestureState.dy * 0.3);
+          // Original behavior without snap points
+          if (gestureState.dy > 0) {
+            translateY.setValue(gestureState.dy);
+          } else {
+            translateY.setValue(gestureState.dy * 0.3);
+          }
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         translateY.flattenOffset();
 
-        // Calculate velocity and distance to determine if we should close
-        const shouldClose =
-          gestureState.vy > 0.5 || // Fast swipe down
-          (gestureState.dy > dragThreshold / 2 && gestureState.vy > 0.1) || // Medium swipe down
-          gestureState.dy > dragThreshold; // Slow but long swipe down
+        if (snapPointHeights && enableSnapping) {
+          // Handle snapping logic
+          const targetIndex = findNearestSnapPoint(gestureState.dy, gestureState.vy);
 
-        if (shouldClose) {
-          close();
+          if (targetIndex === -1) {
+            close();
+          } else if (targetIndex !== currentSnapPointIndex) {
+            snapToPoint(targetIndex);
+          } else {
+            // Snap back to current position
+            Animated.spring(translateY, {
+              toValue: modalPosition,
+              damping: springDamping,
+              stiffness: 500,
+              overshootClamping: true,
+              useNativeDriver: true,
+            }).start();
+          }
         } else {
-          // Animate back to the open position with spring physics
-          Animated.spring(translateY, {
-            toValue: modalPosition,
-            damping: springDamping,
-            stiffness: 500,
-            overshootClamping: true,
-            useNativeDriver: true,
-          }).start();
+          // Original behavior without snap points
+          const shouldClose =
+            gestureState.vy > 0.5 ||
+            (gestureState.dy > dragThreshold / 2 && gestureState.vy > 0.1) ||
+            gestureState.dy > dragThreshold;
+
+          if (shouldClose) {
+            close();
+          } else {
+            Animated.spring(translateY, {
+              toValue: modalPosition,
+              damping: springDamping,
+              stiffness: 500,
+              overshootClamping: true,
+              useNativeDriver: true,
+            }).start();
+          }
         }
       },
     })
   ).current;
 
+  const snapToPoint = (index: number) => {
+    if (!snapPointHeights || !validatedSnapPoints) return;
+
+    const targetIndex = Math.max(0, Math.min(index, snapPointHeights.length - 1));
+
+    if (targetIndex === currentSnapPointIndex) return;
+
+    // Configure smooth layout animation for height change
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(
+        300,
+        LayoutAnimation.Types.easeInEaseOut,
+        LayoutAnimation.Properties.scaleY
+      )
+    );
+
+    // Update state to trigger height change
+    setCurrentSnapPointIndex(targetIndex);
+
+    // Animate translateY back to position
+    Animated.spring(translateY, {
+      toValue: modalPosition,
+      damping: springDamping,
+      stiffness: 500,
+      overshootClamping: true,
+      useNativeDriver: true,
+    }).start(() => {
+      onSnapPointChange?.(targetIndex, validatedSnapPoints[targetIndex]);
+    });
+  };
+
   const open = () => {
     setVisible(true);
+    // Reset to initial snap point when opening
+    if (snapPointHeights && initialSnapPointIndex !== currentSnapPointIndex) {
+      setCurrentSnapPointIndex(initialSnapPointIndex);
+    }
+
     Animated.parallel([
       Animated.timing(backdropOpacityAnim, {
         toValue: backdropOpacity,
@@ -261,8 +436,6 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
   };
 
   const close = () => {
-
-
     Animated.parallel([
       Animated.timing(backdropOpacityAnim, {
         toValue: 0,
@@ -283,6 +456,7 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(({
   useImperativeHandle(ref, () => ({
     open,
     close,
+    snapToPoint,
   }));
 
   useEffect(() => {
