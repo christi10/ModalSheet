@@ -17,10 +17,11 @@ import {
 } from 'react-native';
 import { NativeViewGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import ModalSheet, { ModalSheetRef } from '../../react-native-modal-sheet/src/ModalSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small' | 'draggable';
+type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small' | 'draggable' | 'dynamic' | 'dynamicSmall' | 'dynamicMedium' | 'dynamicLarge' | 'snapPoints';
 
 type DraggableItem = {
   key: string;
@@ -36,7 +37,10 @@ interface BottomSheetProps {
 }
 
 const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, height, children }) => {
-  const translateY = useRef(new Animated.Value(height)).current;
+  const [contentHeight, setContentHeight] = useState(300);
+  const effectiveHeight = height > 0 ? height : contentHeight;
+
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   const handlePanResponder = useRef(
@@ -88,7 +92,7 @@ const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, heigh
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
-        toValue: height,
+        toValue: SCREEN_HEIGHT,
         duration: 250,
         useNativeDriver: true,
       }),
@@ -97,14 +101,33 @@ const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, heigh
     });
   };
 
+  const handleContentLayout = (event: any) => {
+    if (height === 0) {
+      const { height: measuredHeight } = event.nativeEvent.layout;
+      // Add padding for handle and margins
+      const totalHeight = Math.max(150, Math.min(measuredHeight + 100, SCREEN_HEIGHT * 0.9));
+      setContentHeight(totalHeight);
+    }
+  };
+
   useEffect(() => {
     if (visible) {
       openSheet();
     } else {
-      translateY.setValue(height);
+      translateY.setValue(SCREEN_HEIGHT);
       backdropOpacity.setValue(0);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (visible && height === 0) {
+      Animated.spring(translateY, {
+        toValue: 0,
+        damping: 20,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [contentHeight, visible]);
 
   return (
     <Modal
@@ -132,7 +155,7 @@ const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, heigh
             style={[
               styles.modalContent,
               {
-                height,
+                height: effectiveHeight,
                 transform: [{ translateY }],
               },
             ]}
@@ -140,7 +163,9 @@ const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, heigh
             <View style={styles.handleArea} {...handlePanResponder.panHandlers}>
               <View style={styles.handle} />
             </View>
-            {children}
+            <View onLayout={handleContentLayout}>
+              {children}
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
@@ -156,6 +181,8 @@ const getColor = (index: number) => {
 export default function ExamplesScreen() {
   const [activeExample, setActiveExample] = useState<ExampleType | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [currentSnapIndex, setCurrentSnapIndex] = useState(0);
+  const snapPointSheetRef = useRef<ModalSheetRef>(null);
 
   const initialData: DraggableItem[] = [...Array(8)].map((_, index) => ({
     key: `item-${index}`,
@@ -173,6 +200,11 @@ export default function ExamplesScreen() {
       case 'large': return 700;
       case 'small': return 200;
       case 'draggable': return 550;
+      case 'dynamic': return 0; // Auto-size based on content
+      case 'dynamicSmall': return 0; // Auto-size based on content
+      case 'dynamicMedium': return 0; // Auto-size based on content
+      case 'dynamicLarge': return 0; // Auto-size based on content
+      case 'snapPoints': return 0; // Using snap points instead
       default: return 400;
     }
   };
@@ -375,19 +407,126 @@ export default function ExamplesScreen() {
         };
 
         return (
-          <View style={{ flex: 1, paddingTop: 10 }}>
+          <View style={{ height: 550 - 72, paddingTop: 10 }}>
             <Text style={styles.sheetTitle}>Drag & Drop List</Text>
             <DraggableFlatList
               data={data}
               onDragEnd={({ data: newData }) => setData(newData)}
               keyExtractor={(item) => item.key}
               renderItem={renderItem}
-              containerStyle={{ flex: 1 }}
               animationConfig={{
                 damping: 20,
                 stiffness: 100,
               }}
             />
+          </View>
+        );
+
+      case 'dynamicSmall':
+        return (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Small Auto-Sized Content</Text>
+            <Text style={styles.dynamicSubtitle}>
+              Just a single message with minimal content.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.primaryButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+              onPress={() => setActiveExample(null)}
+            >
+              <Text style={styles.buttonText}>Close</Text>
+            </Pressable>
+          </View>
+        );
+
+      case 'dynamicMedium':
+        return (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Medium Auto-Sized Content</Text>
+            <Text style={styles.dynamicSubtitle}>
+              This modal has medium-sized content to demonstrate auto-sizing.
+            </Text>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 1</Text>
+              <Text style={styles.dynamicCardText}>
+                The modal automatically calculates the height needed for this content.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 2</Text>
+              <Text style={styles.dynamicCardText}>
+                No manual height configuration required.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 3</Text>
+              <Text style={styles.dynamicCardText}>
+                Perfect fit for varying content lengths.
+              </Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.primaryButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+              onPress={() => setActiveExample(null)}
+            >
+              <Text style={styles.buttonText}>Close</Text>
+            </Pressable>
+          </View>
+        );
+
+      case 'dynamicLarge':
+        return (
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetTitle}>Large Auto-Sized Content</Text>
+            <Text style={styles.dynamicSubtitle}>
+              This example shows how the modal handles larger amounts of content while staying within the maxHeight constraint.
+            </Text>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Section 1: Introduction</Text>
+              <Text style={styles.dynamicCardText}>
+                Auto-sizing modals are incredibly useful when you have varying content that changes based on user interaction, API responses, or dynamic data. The modal automatically adjusts to fit the content perfectly.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Section 2: Benefits</Text>
+              <Text style={styles.dynamicCardText}>
+                You don't need to calculate heights manually or create multiple modal variants for different content sizes. The component handles everything automatically, making your code cleaner and more maintainable.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Section 3: Use Cases</Text>
+              <Text style={styles.dynamicCardText}>
+                Perfect for forms with conditional fields, product details with varying descriptions, user profiles with different amounts of information, notifications with variable message lengths, and much more.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Section 4: Constraints</Text>
+              <Text style={styles.dynamicCardText}>
+                The modal respects both minHeight and maxHeight constraints. If content exceeds maxHeight, you can make the content scrollable. The default maxHeight is 90% of the screen height.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Section 5: Performance</Text>
+              <Text style={styles.dynamicCardText}>
+                Built using React Native's onLayout callback for efficient measurement. The height calculation happens instantly without noticeable delays or jank.
+              </Text>
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.primaryButton,
+                { opacity: pressed ? 0.8 : 1 }
+              ]}
+              onPress={() => setActiveExample(null)}
+            >
+              <Text style={styles.buttonText}>Got It!</Text>
+            </Pressable>
           </View>
         );
 
@@ -460,9 +599,61 @@ export default function ExamplesScreen() {
         >
           <Text style={styles.exampleButtonText}>🎯 Draggable List (550px)</Text>
         </Pressable>
+
+        <Text style={styles.sectionHeader}>Auto-Sizing Examples</Text>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            styles.dynamicButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('dynamicSmall')}
+        >
+          <Text style={styles.exampleButtonText}>📦 Small Content (Auto)</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            styles.dynamicButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('dynamicMedium')}
+        >
+          <Text style={styles.exampleButtonText}>📦 Medium Content (Auto)</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            styles.dynamicButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => setActiveExample('dynamicLarge')}
+        >
+          <Text style={styles.exampleButtonText}>📦 Large Content (Auto)</Text>
+        </Pressable>
+
+        <Text style={styles.sectionHeader}>Snap Points Example</Text>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            styles.snapPointsButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => {
+            setActiveExample('snapPoints');
+            setCurrentSnapIndex(0);
+            setTimeout(() => snapPointSheetRef.current?.open(), 100);
+          }}
+        >
+          <Text style={styles.exampleButtonText}>🎯 Snap Points (NEW)</Text>
+        </Pressable>
       </ScrollView>
 
-      {activeExample && (
+      {activeExample && activeExample !== 'snapPoints' && (
         <CustomBottomSheet
           visible={!!activeExample}
           onClose={() => setActiveExample(null)}
@@ -471,6 +662,136 @@ export default function ExamplesScreen() {
           {renderSheetContent()}
         </CustomBottomSheet>
       )}
+
+      {/* Snap Points Modal using ModalSheet component */}
+      <ModalSheet
+        ref={snapPointSheetRef}
+        snapPoints={[0.3, 0.6, 0.9]}
+        initialSnapIndex={0}
+        onSnapPointChange={(index) => setCurrentSnapIndex(index)}
+        onClose={() => setActiveExample(null)}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+        containerStyle={{ paddingBottom: 40 }}
+      >
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+          <Text style={styles.sheetTitle}>🎯 Snap Points Demo</Text>
+          <Text style={styles.dynamicSubtitle}>
+            Drag the sheet up or down to snap between different heights!
+          </Text>
+
+          <View style={styles.snapIndicator}>
+            <Text style={styles.snapIndicatorText}>
+              Current Position: {currentSnapIndex === 0 ? 'Small (30%)' : currentSnapIndex === 1 ? 'Medium (60%)' : 'Large (90%)'}
+            </Text>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>⌨️ Keyboard Test</Text>
+            <Text style={styles.dynamicCardText}>
+              Test how the keyboard interacts with snap points:
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Type something here..."
+              placeholderTextColor="#999"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Another input field..."
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>📏 How Snap Points Work</Text>
+            <Text style={styles.dynamicCardText}>
+              • Drag the handle or sheet to move between positions{'\n'}
+              • Release to snap to the nearest point{'\n'}
+              • The sheet intelligently snaps to: 30%, 60%, or 90%{'\n'}
+              • Swipe down from the smallest size to close
+            </Text>
+          </View>
+
+          <Text style={styles.snapButtonsTitle}>Quick Navigation:</Text>
+          <View style={styles.snapButtonsRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                currentSnapIndex === 0 && styles.snapButtonActive,
+                { opacity: pressed ? 0.7 : 1 }
+              ]}
+              onPress={() => snapPointSheetRef.current?.snapToPoint(0)}
+            >
+              <Text style={[styles.snapButtonText, currentSnapIndex === 0 && styles.snapButtonTextActive]}>
+                Small{'\n'}30%
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                currentSnapIndex === 1 && styles.snapButtonActive,
+                { opacity: pressed ? 0.7 : 1 }
+              ]}
+              onPress={() => snapPointSheetRef.current?.snapToPoint(1)}
+            >
+              <Text style={[styles.snapButtonText, currentSnapIndex === 1 && styles.snapButtonTextActive]}>
+                Medium{'\n'}60%
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                currentSnapIndex === 2 && styles.snapButtonActive,
+                { opacity: pressed ? 0.7 : 1 }
+              ]}
+              onPress={() => snapPointSheetRef.current?.snapToPoint(2)}
+            >
+              <Text style={[styles.snapButtonText, currentSnapIndex === 2 && styles.snapButtonTextActive]}>
+                Large{'\n'}90%
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>✨ Use Cases</Text>
+            <Text style={styles.dynamicCardText}>
+              Perfect for music players, maps, shopping carts, and any UI where users need quick access to different detail levels.
+            </Text>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>⚙️ Configuration</Text>
+            <Text style={styles.dynamicCardText}>
+              Define snap points as percentages (0.3 = 30%) or absolute pixel values (300 = 300px). You can have as many snap points as needed!
+            </Text>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>🎨 Customization</Text>
+            <Text style={styles.dynamicCardText}>
+              Control the initial snap point, enable scroll-to-expand behavior, and receive callbacks when snap points change.
+            </Text>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionButton,
+              styles.primaryButton,
+              { opacity: pressed ? 0.8 : 1, marginTop: 10 }
+            ]}
+            onPress={() => {
+              snapPointSheetRef.current?.close();
+              setActiveExample(null);
+            }}
+          >
+            <Text style={styles.buttonText}>Close</Text>
+          </Pressable>
+        </ScrollView>
+      </ModalSheet>
     </View>
   );
 }
@@ -536,7 +857,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   sheetContent: {
-    flex: 1,
+    paddingBottom: 10,
   },
   sheetTitle: {
     fontSize: 22,
@@ -647,5 +968,93 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  dynamicButton: {
+    backgroundColor: '#FF2D55',
+  },
+  dynamicSubtitle: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  dynamicCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007AFF',
+  },
+  dynamicCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 10,
+  },
+  dynamicCardText: {
+    fontSize: 15,
+    color: '#555',
+    lineHeight: 22,
+  },
+  sectionHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 20,
+    marginBottom: 10,
+    paddingLeft: 5,
+  },
+  snapPointsButton: {
+    backgroundColor: '#34C759',
+  },
+  snapIndicator: {
+    backgroundColor: '#34C759',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  snapIndicatorText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'white',
+  },
+  snapButtonsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  snapButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 10,
+  },
+  snapButton: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  snapButtonActive: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#34C759',
+  },
+  snapButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    textAlign: 'center',
+  },
+  snapButtonTextActive: {
+    color: '#34C759',
+    fontWeight: '700',
   },
 });

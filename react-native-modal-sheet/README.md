@@ -10,11 +10,13 @@ A performant, gesture-enabled bottom sheet component for React Native using the 
 
 ## Features
 
-- 🎨 **Smooth Animations** - Gesture-driven animations with spring physics
+- 🎯 **Snap Points** - Multi-point snapping with smooth transitions (NEW in v1.1.0!)
+- 🎨 **Smooth Animations** - 60fps native-driven animations with transform-based approach
+- 🚀 **High Performance** - No layout recalculations, content rendered once
 - 🎯 **Zero Native Dependencies** - Built with React Native's Animated API
 - 📱 **Cross Platform** - Works on both iOS and Android
 - 🎭 **Backdrop Animation** - Independent opacity animation for backdrop
-- 👆 **Gesture Support** - Drag to close with customizable threshold
+- 👆 **Gesture Support** - Drag to snap or close with intelligent detection
 - 🎨 **Fully Customizable** - Customize colors, dimensions, and animations
 - 📦 **Lightweight** - Minimal overhead, no external dependencies
 - 🎯 **Modern Pressable API** - Uses Pressable for better touch feedback and accessibility
@@ -61,7 +63,9 @@ function App() {
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `children` | `ReactNode` | **Required** | Content to be rendered inside the bottom sheet |
-| `height` | `number` | `400` | Height of the bottom sheet in pixels |
+| `height` | `number` | - | Height of the bottom sheet in pixels (auto-sizes if not provided) |
+| `maxHeight` | `number` | 90% of screen | Maximum height constraint for auto-sizing |
+| `minHeight` | `number` | `150` | Minimum height constraint for auto-sizing |
 | `onClose` | `() => void` | - | Callback when the sheet is closed |
 | `onOpen` | `() => void` | - | Callback when the sheet is opened |
 | `backgroundColor` | `string` | `'white'` | Background color of the sheet |
@@ -74,6 +78,15 @@ function App() {
 | `springDamping` | `number` | `20` | Spring animation damping value |
 | `containerStyle` | `ViewStyle` | - | Custom styles for the sheet container |
 | `modalProps` | `Partial<ModalProps>` | - | Additional props for the Modal component |
+
+#### Snap Points Props (NEW in v1.1.0)
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `snapPoints` | `number[]` | - | Array of snap positions (0-1 for percentage, >1 for pixels). Example: `[0.3, 0.6, 0.9]` |
+| `initialSnapIndex` | `number` | `0` | Initial snap point index to open at |
+| `enableScrollToExpand` | `boolean` | `false` | Enable scroll-to-expand behavior (expand to next snap on scroll) |
+| `onSnapPointChange` | `(index: number) => void` | - | Callback when snap point changes, receives new index |
 
 #### Accessibility Props
 
@@ -96,8 +109,137 @@ function App() {
 |--------|-------------|
 | `open()` | Opens the bottom sheet |
 | `close()` | Closes the bottom sheet |
+| `present()` | Alias for `open()` |
+| `dismiss()` | Alias for `close()` |
+| `snapToPoint(index)` | Snap to a specific snap point by index (NEW in v1.1.0) |
 
 ## Examples
+
+### Snap Points (NEW in v1.1.0)
+
+Snap points allow your bottom sheet to snap to predefined heights, similar to Apple Maps or Spotify's player.
+
+```tsx
+import React, { useRef, useState } from 'react';
+import { Button, Text, View, StyleSheet, ScrollView } from 'react-native';
+import ModalSheet, { ModalSheetRef } from 'react-native-modal-sheet';
+
+function SnapPointsExample() {
+  const sheetRef = useRef<ModalSheetRef>(null);
+  const [currentSnap, setCurrentSnap] = useState(0);
+
+  return (
+    <View style={styles.container}>
+      <Button title="Open Sheet" onPress={() => sheetRef.current?.open()} />
+
+      <ModalSheet
+        ref={sheetRef}
+        snapPoints={[0.3, 0.6, 0.9]}  // 30%, 60%, 90% of screen height
+        initialSnapIndex={0}
+        onSnapPointChange={(index) => setCurrentSnap(index)}
+        onClose={() => console.log('Sheet closed')}
+      >
+        <ScrollView>
+          <Text style={styles.title}>Snap Points Demo</Text>
+          <Text style={styles.subtitle}>
+            Currently at: {currentSnap === 0 ? 'Small (30%)' : currentSnap === 1 ? 'Medium (60%)' : 'Large (90%)'}
+          </Text>
+
+          <View style={styles.buttonRow}>
+            <Button title="Small" onPress={() => sheetRef.current?.snapToPoint(0)} />
+            <Button title="Medium" onPress={() => sheetRef.current?.snapToPoint(1)} />
+            <Button title="Large" onPress={() => sheetRef.current?.snapToPoint(2)} />
+          </View>
+
+          {/* Add your content here */}
+          <Text style={styles.content}>
+            Drag the sheet up or down to snap between different heights!
+            The sheet will automatically snap to the nearest point.
+          </Text>
+        </ScrollView>
+      </ModalSheet>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  content: {
+    fontSize: 16,
+    lineHeight: 24,
+    padding: 20,
+  },
+});
+```
+
+#### Snap Points with Absolute Pixels
+
+```tsx
+<ModalSheet
+  ref={sheetRef}
+  snapPoints={[300, 600, 900]}  // Absolute pixel values
+  initialSnapIndex={1}  // Start at 600px
+>
+  {/* Your content */}
+</ModalSheet>
+```
+
+#### Music Player Example (Instagram/Spotify Style)
+
+```tsx
+function MusicPlayerSheet() {
+  const sheetRef = useRef<ModalSheetRef>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  return (
+    <ModalSheet
+      ref={sheetRef}
+      snapPoints={[0.15, 0.5, 0.95]}  // Mini player, half screen, full screen
+      initialSnapIndex={0}
+      backgroundColor="#1a1a1a"
+      handleColor="#666"
+    >
+      <View style={{ padding: 20 }}>
+        {/* Mini player view at 15% */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image source={albumArt} style={{ width: 50, height: 50, borderRadius: 8 }} />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>Song Title</Text>
+            <Text style={{ color: '#999', fontSize: 14 }}>Artist Name</Text>
+          </View>
+          <Button title={isPlaying ? '⏸' : '▶️'} onPress={() => setIsPlaying(!isPlaying)} />
+        </View>
+
+        {/* Full player controls shown at higher snap points */}
+        <View style={{ marginTop: 40 }}>
+          <Text style={{ color: 'white' }}>Progress bar, lyrics, etc.</Text>
+        </View>
+      </View>
+    </ModalSheet>
+  );
+}
+```
 
 ### Basic Usage
 
