@@ -139,7 +139,7 @@ function SnapPointsExample() {
         onSnapPointChange={(index) => setCurrentSnap(index)}
         onClose={() => console.log('Sheet closed')}
       >
-        <ScrollView>
+        <ScrollView showsVerticalScrollIndicator={false}> 
           <Text style={styles.title}>Snap Points Demo</Text>
           <Text style={styles.subtitle}>
             Currently at: {currentSnap === 0 ? 'Small (30%)' : currentSnap === 1 ? 'Medium (60%)' : 'Large (90%)'}
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
 import { ScrollView } from 'react-native';
 
 <ModalSheet ref={sheetRef} height={600}>
-  <ScrollView>
+  <ScrollView showsVerticalScrollIndicator={false}>
     {[...Array(50)].map((_, i) => (
       <Text key={i} style={{ padding: 20 }}>Item {i + 1}</Text>
     ))}
@@ -700,7 +700,7 @@ The component is **fully accessible** and follows WCAG guidelines. It includes c
 >
   <Text accessibilityRole="header">Select Country</Text>
   
-  <ScrollView>
+  <ScrollView showsVerticalScrollIndicator={false}>
     {countries.map((country) => (
       <Pressable
         key={country.code}

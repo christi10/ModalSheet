@@ -226,6 +226,7 @@ export default function AccessibilityExample() {
           <ScrollView
             accessibilityRole="list"
             accessibilityLabel="List of countries"
+            showsVerticalScrollIndicator={false}
           >
             {countries.map((country, index) => (
               <Pressable

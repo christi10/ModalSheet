@@ -10,14 +10,17 @@ A React Native Expo app demonstrating the powerful **React Native Modal Sheet** 
 
 ## 🚀 Features
 
-- 🎨 **Smooth Animations** - Gesture-driven animations with spring physics
+- 🎨 **Smooth Animations** - Buttery smooth bezier easing with 60fps performance
+- 🎯 **Snap Points** - Multiple snap positions with intelligent detection
+- 📜 **Scroll-to-Expand** - Automatically expand to next snap point while scrolling
+- 👆 **Pull-to-Collapse** - Pull down at the top to collapse or close
 - 🎯 **Zero Native Dependencies** - Built with React Native's Animated API
 - 📱 **Cross Platform** - Works on both iOS and Android
 - 🎭 **Backdrop Animation** - Independent opacity animation for backdrop
 - 👆 **Gesture Support** - Drag to close with customizable threshold
 - 🎨 **Fully Customizable** - Customize colors, dimensions, and animations
 - 📦 **Lightweight** - Minimal overhead, no external dependencies
-- 🎯 **Modern Pressable API** - Uses Pressable for better touch feedback and accessibility
+- ♿ **ARIA Compliant** - Full accessibility support with ARIA attributes
 - 🔒 **TypeScript Support** - Full TypeScript definitions included
 
 ## 📦 Installation
@@ -66,6 +69,10 @@ Interactive demonstrations of different modal sheet types:
 - **Scrollable List** (600px) - Country selection with scrollable content
 - **Large Content** (700px) - Terms of service with long text
 - **Small Sheet** (200px) - Quick settings with icon buttons
+- **Drag & Drop List** (550px) - Interactive draggable list
+- **Dynamic Sizing** - Auto-sized sheets based on content
+- **Snap Points - 3 Points** - Small (30%), Medium (60%), Large (90%) with scroll-to-expand
+- **Snap Points - 2 Points** - Small (30%), Large (90%) simplified example
 
 ### ℹ️ Explore Tab
 - Detailed information about bottom sheet features
@@ -105,6 +112,11 @@ function App() {
 |------|------|---------|-------------|
 | `children` | `ReactNode` | **Required** | Content to be rendered inside the bottom sheet |
 | `height` | `number` | `400` | Height of the bottom sheet in pixels |
+| `snapPoints` | `number[]` | - | Array of snap points as percentages (0-1) or pixels |
+| `initialSnapIndex` | `number` | `0` | Which snap point to open to initially |
+| `enableScrollToExpand` | `boolean` | `true` | Enable scroll-to-expand behavior |
+| `scrollExpandThreshold` | `number` | `50` | Pixels to scroll before triggering transition |
+| `onSnapPointChange` | `(index: number) => void` | - | Callback when snap point changes |
 | `onClose` | `() => void` | - | Callback when the sheet is closed |
 | `onOpen` | `() => void` | - | Callback when the sheet is opened |
 | `backgroundColor` | `string` | `'white'` | Background color of the sheet |
@@ -113,6 +125,9 @@ function App() {
 | `handleColor` | `string` | `'#DDD'` | Color of the drag handle |
 | `backdropOpacity` | `number` | `0.5` | Opacity of the backdrop (0-1) |
 | `dragThreshold` | `number` | `125` | Distance to drag before sheet closes |
+| `aria-label` | `string` | `'Bottom sheet'` | Accessible label for the modal |
+| `aria-describedby` | `string` | - | ID of element describing the modal |
+| `backdropAriaLabel` | `string` | `'Close bottom sheet'` | Accessible label for backdrop |
 
 ### Methods (via ref)
 
@@ -120,6 +135,12 @@ function App() {
 |--------|-------------|
 | `open()` | Opens the bottom sheet |
 | `close()` | Closes the bottom sheet |
+| `present()` | Alias for `open()` |
+| `dismiss()` | Alias for `close()` |
+| `snapToPoint(index)` | Snap to a specific snap point by index |
+| `handleScroll(event)` | Process scroll events for scroll-to-expand |
+| `handleScrollBeginDrag(event)` | Track scroll start position |
+| `handleScrollEndDrag(event)` | Handle pull-to-collapse gestures |
 
 ## 🎨 Customization Examples
 
@@ -138,13 +159,57 @@ function App() {
 </ModalSheet>
 ```
 
+### With Snap Points
+
+```tsx
+import { useRef, useState } from 'react';
+
+function MyComponent() {
+  const sheetRef = useRef<ModalSheetRef>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  return (
+    <ModalSheet
+      ref={sheetRef}
+      snapPoints={[0.3, 0.6, 0.9]} // 30%, 60%, 90% of screen height
+      initialSnapIndex={0}
+      onSnapPointChange={(index) => setCurrentIndex(index)}
+    >
+      <Text>Current snap point: {currentIndex}</Text>
+    </ModalSheet>
+  );
+}
+```
+
+### With Scroll-to-Expand
+
+```tsx
+import { ScrollView } from 'react-native';
+
+<ModalSheet
+  ref={sheetRef}
+  snapPoints={[0.3, 0.9]}
+  enableScrollToExpand={true}
+  scrollExpandThreshold={20}
+>
+  <ScrollView
+    onScroll={(e) => sheetRef.current?.handleScroll(e)}
+    onScrollBeginDrag={(e) => sheetRef.current?.handleScrollBeginDrag(e)}
+    onScrollEndDrag={(e) => sheetRef.current?.handleScrollEndDrag(e)}
+    scrollEventThrottle={16}
+  >
+    {/* Your scrollable content */}
+  </ScrollView>
+</ModalSheet>
+```
+
 ### With Scrollable Content
 
 ```tsx
 import { ScrollView } from 'react-native';
 
 <ModalSheet ref={sheetRef} height={600}>
-  <ScrollView>
+  <ScrollView showsVerticalScrollIndicator={false}>
     {[...Array(50)].map((_, i) => (
       <Text key={i} style={{ padding: 20 }}>Item {i + 1}</Text>
     ))}
@@ -156,6 +221,7 @@ import { ScrollView } from 'react-native';
 
 The ModalSheet component is **fully accessible** and follows WCAG guidelines:
 
+- ✅ **ARIA Attributes** - Modern `aria-label`, `aria-modal`, `aria-describedby` support
 - ✅ **Screen Reader Support** - Proper labeling and hints for all interactive elements
 - ✅ **Voice Announcements** - Announces when sheet opens/closes
 - ✅ **Focus Management** - Handles focus correctly when modal appears
@@ -164,9 +230,12 @@ The ModalSheet component is **fully accessible** and follows WCAG guidelines:
 
 ## 🚀 Performance
 
-- **Lightweight**: No external dependencies, minimal overhead
-- **Smooth Animations**: 60fps animations using React Native's Animated API
+- **Transform-Based**: Uses `translateY` transforms instead of height changes
+- **Native Driver**: All animations run on the UI thread at 60fps
+- **Smooth Easing**: Custom bezier curve (0.25, 0.1, 0.25, 1) for natural feel
+- **No Layout Recalculations**: Content pre-rendered once, just repositioned
 - **Optimized Rendering**: Efficient re-renders and memory management
+- **Lightweight**: No external dependencies, minimal overhead
 
 ## 🛠️ Development
 

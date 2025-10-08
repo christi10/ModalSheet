@@ -1,4 +1,11 @@
-import React, {useRef, useEffect, useImperativeHandle, forwardRef, useState, useCallback} from 'react';
+import React, {
+  useRef,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+  useState,
+  useCallback,
+} from 'react';
 import {
   StyleSheet,
   View,
@@ -14,39 +21,44 @@ import {
   GestureResponderEvent,
   LayoutChangeEvent,
   Easing,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 
 export interface ModalSheetRef {
   open: () => void;
   close: () => void;
-  present: () => void; // Alias for open()
-  dismiss: () => void; // Alias for close()
+  present: () => void;
+  dismiss: () => void;
   snapToPoint: (index: number) => void; // Snap to a specific snap point
+  handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void; // Handle scroll events for expansion
+  handleScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void; // Handle scroll begin
+  handleScrollEndDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void; // Handle scroll end
 }
 
 export interface ModalSheetAccessibilityProps {
   /**
-   * Accessibility label for the modal
+   * Accessible label for the modal
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
 
   /**
-   * Accessibility hint for the modal
+   * Accessible description for the modal
    */
-  accessibilityHint?: string;
+  'aria-describedby'?: string;
 
   /**
-   * Accessibility label for the backdrop
+   * Accessible label for the backdrop
    */
-  backdropAccessibilityLabel?: string;
+  backdropAriaLabel?: string;
 
   /**
-   * Additional accessibility props for the sheet container
+   * Additional ARIA props for the sheet container
    */
-  sheetAccessibilityProps?: {
-    accessibilityRole?: AccessibilityRole;
-    accessibilityState?: any;
-    importantForAccessibility?: 'auto' | 'yes' | 'no' | 'no-hide-descendants';
+  sheetAriaProps?: {
+    role?: AccessibilityRole;
+    'aria-modal'?: boolean;
+    'aria-hidden'?: boolean;
   };
 }
 
@@ -88,10 +100,20 @@ export interface ModalSheetProps extends ModalSheetAccessibilityProps {
   initialSnapIndex?: number;
 
   /**
-   * Enable scroll-to-expand behavior (default: false)
-   * When true, scrolling up on content will expand to the next snap point
+   * Enable scroll-to-expand behavior (default: true)
+   * When true:
+   * - Slow scroll down: expand to next snap point
+   * - Fast swipe down: jump multiple snap points or to max
+   * - Slow scroll up at top: collapse to previous snap point
+   * - Fast swipe up at top: jump back multiple snap points or close
    */
   enableScrollToExpand?: boolean;
+
+  /**
+   * Scroll threshold in pixels to trigger snap point expansion/collapse (default: 50)
+   * How far the user needs to scroll to trigger the transition
+   */
+  scrollExpandThreshold?: number;
 
   /**
    * Callback when snap point changes
@@ -174,6 +196,8 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
           minHeight = 150,
           snapPoints,
           initialSnapIndex = 0,
+          enableScrollToExpand = true,
+          scrollExpandThreshold = 50,
           onSnapPointChange,
           onClose,
           onOpen,
@@ -187,17 +211,18 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
           containerStyle,
           modalProps,
           // Accessibility props
-          accessibilityLabel = 'Bottom sheet',
-          accessibilityHint,
-          backdropAccessibilityLabel = 'Close bottom sheet',
-          sheetAccessibilityProps = {},
+          'aria-label': ariaLabel = 'Bottom sheet',
+          'aria-describedby': ariaDescribedBy,
+          backdropAriaLabel = 'Close bottom sheet',
+          sheetAriaProps = {},
         },
         ref,
     ) => {
       const [visible, setVisible] = useState(false);
       const visibleRef = useRef(visible);
       const [keyboardHeight, setKeyboardHeight] = useState(0);
-      const [contentHeight, setContentHeight] = useState(0);
+      const [measuredContentHeight, setMeasuredContentHeight] = useState(0);
+      const hasMeasured = useRef(false);
       const [currentSnapIndex, setCurrentSnapIndex] = useState(initialSnapIndex);
       const [isAnimating, setIsAnimating] = useState(false);
       const isImperativelyAnimating = useRef(false);
@@ -209,6 +234,13 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
       const touchStartY = useRef(0);
       const touchStartTranslateY = useRef(0);
       const isDragging = useRef(false);
+
+      // Scroll tracking for expansion
+      const lastScrollY = useRef(0);
+      const scrollVelocity = useRef(0);
+      const canExpandFromScroll = useRef(true);
+      const scrollStartY = useRef(0);
+      const isDraggingSheet = useRef(false);
 
       // Keep visibleRef in sync with visible state
       useEffect(() => {
@@ -262,7 +294,12 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
         const {height: measuredHeight} = event.nativeEvent.layout;
         // Add handle height (40) + padding (top 12 + bottom 20 = 32) = 72
         const totalHeight = measuredHeight + 72;
-        setContentHeight(totalHeight);
+
+        // Only trigger ONE state update after first measurement
+        if (!hasMeasured.current && totalHeight > 0) {
+          hasMeasured.current = true;
+          setMeasuredContentHeight(totalHeight);
+        }
       }, []);
 
       // Calculate the final height for the modal
@@ -281,126 +318,185 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
         }
 
         // Auto-sizing based on content
-        if (contentHeight > 0) {
-
+        if (measuredContentHeight > 0) {
           // When keyboard is visible, limit height
           if (keyboardHeight > 0) {
             const availableHeight = screenHeight - keyboardHeight - 50;
             return Math.max(
                 minHeight,
-                Math.min(contentHeight, availableHeight, effectiveMaxHeight)
+                Math.min(
+                    measuredContentHeight,
+                    availableHeight,
+                    effectiveMaxHeight,
+                ),
             );
           }
 
           // Normal case: use content height with constraints
-          return Math.max(minHeight, Math.min(contentHeight, effectiveMaxHeight));
+          return Math.max(
+              minHeight,
+              Math.min(measuredContentHeight, effectiveMaxHeight),
+          );
         }
 
         // Default to minHeight while measuring
         return minHeight;
-      }, [height, contentHeight, keyboardHeight, effectiveMaxHeight, minHeight, screenHeight, snapPointsInPixels]);
+      }, [
+        height,
+        measuredContentHeight,
+        keyboardHeight,
+        effectiveMaxHeight,
+        minHeight,
+        screenHeight,
+        snapPointsInPixels,
+      ]);
 
       // Get the translateY offset for a given snap index
       // The sheet is always full height, we just translate it up/down to show different amounts
-      const getSnapTranslateY = useCallback((index: number): number => {
-        if (!snapPointsInPixels || snapPointsInPixels.length === 0) return 0;
-        const maxHeight = snapPointsInPixels[snapPointsInPixels.length - 1];
-        const targetHeight = snapPointsInPixels[index];
-        // Return how much to hide (push down) from the max height
-        return maxHeight - targetHeight;
-      }, [snapPointsInPixels]);
+      const getSnapTranslateY = useCallback(
+          (index: number): number => {
+            if (!snapPointsInPixels || snapPointsInPixels.length === 0) return 0;
+            const maxHeight = snapPointsInPixels[snapPointsInPixels.length - 1];
+            const targetHeight = snapPointsInPixels[index];
+            // Return how much to hide (push down) from the max height
+            return maxHeight - targetHeight;
+          },
+          [snapPointsInPixels],
+      );
 
       // Snap to a specific snap point
-      const snapToPoint = useCallback((index: number) => {
-        if (!snapPointsInPixels || index < 0 || index >= snapPointsInPixels.length) return;
+      const snapToPoint = useCallback(
+          (index: number) => {
+            if (
+                !snapPointsInPixels ||
+                index < 0 ||
+                index >= snapPointsInPixels.length
+            )
+              return;
 
-        const targetTranslateY = getSnapTranslateY(index);
+            const targetTranslateY = getSnapTranslateY(index);
 
-        // Update state
-        setCurrentSnapIndex(index);
-        onSnapPointChange?.(index);
-        setIsAnimating(true);
+            // Update state
+            setCurrentSnapIndex(index);
+            onSnapPointChange?.(index);
+            setIsAnimating(true);
 
-        // Use timing for predictable, quick animations
-        Animated.timing(translateY, {
-          toValue: targetTranslateY,
-          duration: 150,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }).start(() => {
-          setIsAnimating(false);
-        });
-      }, [snapPointsInPixels, onSnapPointChange, translateY, getSnapTranslateY]);
+            // Use timing with smooth bezier easing
+            Animated.timing(translateY, {
+              toValue: targetTranslateY,
+              duration: 280,
+              easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+              useNativeDriver: true,
+            }).start(() => {
+              setIsAnimating(false);
+            });
+          },
+          [snapPointsInPixels, onSnapPointChange, translateY, getSnapTranslateY],
+      );
 
       // Helper: Determine target snap index based on current position
-      const findTargetSnapIndex = useCallback((currentTranslateY: number): number | 'close' => {
-        if (!snapPointsInPixels || snapPointsInPixels.length === 0) return currentSnapIndex;
+      const findTargetSnapIndex = useCallback(
+          (currentTranslateY: number): number | 'close' => {
+            if (!snapPointsInPixels || snapPointsInPixels.length === 0)
+              return currentSnapIndex;
 
-        const maxSnapTranslateY = getSnapTranslateY(0);
+            const maxSnapTranslateY = getSnapTranslateY(0);
 
-        // Check if should close (dragged beyond smallest snap + threshold)
-        if (currentTranslateY > maxSnapTranslateY + dragThreshold) {
-          return 'close';
-        }
+            // Check if should close (dragged beyond smallest snap + threshold)
+            if (currentTranslateY > maxSnapTranslateY + dragThreshold) {
+              return 'close';
+            }
 
-        // Find closest snap point to current translateY position
-        let targetIndex = 0;
-        let minDistance = Infinity;
+            // Find closest snap point to current translateY position
+            let targetIndex = 0;
+            let minDistance = Infinity;
 
-        for (let i = 0; i < snapPointsInPixels.length; i++) {
-          const snapTranslateY = getSnapTranslateY(i);
-          const distance = Math.abs(currentTranslateY - snapTranslateY);
-          if (distance < minDistance) {
-            minDistance = distance;
-            targetIndex = i;
-          }
-        }
+            for (let i = 0; i < snapPointsInPixels.length; i++) {
+              const snapTranslateY = getSnapTranslateY(i);
+              const distance = Math.abs(currentTranslateY - snapTranslateY);
+              if (distance < minDistance) {
+                minDistance = distance;
+                targetIndex = i;
+              }
+            }
 
-        return targetIndex;
-      }, [snapPointsInPixels, currentSnapIndex, dragThreshold, getSnapTranslateY]);
+            return targetIndex;
+          },
+          [snapPointsInPixels, currentSnapIndex, dragThreshold, getSnapTranslateY],
+      );
 
       // Helper: Animate to target snap point
-      const animateToSnapPoint = useCallback((targetIndex: number) => {
-        if (!snapPointsInPixels) return;
+      const animateToSnapPoint = useCallback(
+          (targetIndex: number) => {
+            if (!snapPointsInPixels) return;
 
-        const targetTranslateY = getSnapTranslateY(targetIndex);
+            const targetTranslateY = getSnapTranslateY(targetIndex);
 
-        // Update state
-        setCurrentSnapIndex(targetIndex);
-        onSnapPointChange?.(targetIndex);
-        setIsAnimating(true);
+            // Update state
+            setCurrentSnapIndex(targetIndex);
+            onSnapPointChange?.(targetIndex);
+            setIsAnimating(true);
 
-        // Use timing for predictable, quick animations
-        Animated.timing(translateY, {
-          toValue: targetTranslateY,
-          duration: 150,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }).start(() => {
-          setIsAnimating(false);
-        });
-      }, [snapPointsInPixels, onSnapPointChange, translateY, getSnapTranslateY]);
+            // Use timing with smooth bezier easing
+            Animated.timing(translateY, {
+              toValue: targetTranslateY,
+              duration: 280,
+              easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+              useNativeDriver: true,
+            }).start(() => {
+              setIsAnimating(false);
+            });
+          },
+          [snapPointsInPixels, onSnapPointChange, translateY, getSnapTranslateY],
+      );
 
       // Handle touch start
-      const handleTouchStart = useCallback((e: GestureResponderEvent) => {
-        // Prevent touch interactions during animation
-        if (isAnimating) return;
+      const handleTouchStart = useCallback(
+          (e: GestureResponderEvent) => {
+            // Prevent touch interactions during animation
+            if (isAnimating) return;
 
-        touchStartY.current = e.nativeEvent.pageY;
-        touchStartTranslateY.current = (translateY as any)._value || 0;
-        isDragging.current = true;
-      }, [translateY, isAnimating]);
+            touchStartY.current = e.nativeEvent.pageY;
+            touchStartTranslateY.current = (translateY as any)._value || 0;
+            isDragging.current = true;
+          },
+          [translateY, isAnimating],
+      );
 
       // Handle touch move
-      const handleTouchMove = useCallback((e: GestureResponderEvent) => {
-        if (!isDragging.current) return;
+      const handleTouchMove = useCallback(
+          (e: GestureResponderEvent) => {
+            if (!isDragging.current) return;
 
-        const deltaY = e.nativeEvent.pageY - touchStartY.current;
-        const newTranslateY = touchStartTranslateY.current + deltaY;
+            const deltaY = e.nativeEvent.pageY - touchStartY.current;
+            const newTranslateY = touchStartTranslateY.current + deltaY;
 
-        // Apply translateY for immediate visual feedback during drag
-        translateY.setValue(newTranslateY);
-      }, [translateY]);
+            // If using snap points
+            if (snapPointsInPixels && snapPointsInPixels.length > 0) {
+              const maxSnapTranslateY = getSnapTranslateY(snapPointsInPixels.length - 1);
+
+              // Only prevent swiping UP (negative deltaY) when at maximum height
+              if (currentSnapIndex === snapPointsInPixels.length - 1 && newTranslateY < maxSnapTranslateY) {
+                // Lock at maximum height - don't allow upward movement beyond max
+                translateY.setValue(maxSnapTranslateY);
+                return;
+              }
+
+              // Allow all downward movement (deltaY > 0 means dragging down)
+              // This allows collapsing from any snap point
+            }
+
+            // For non-snap mode, prevent upward dragging beyond 0
+            if (!snapPointsInPixels && newTranslateY < 0) {
+              translateY.setValue(0);
+              return;
+            }
+
+            // Apply translateY for immediate visual feedback during drag
+            translateY.setValue(newTranslateY);
+          },
+          [translateY, snapPointsInPixels, currentSnapIndex, getSnapTranslateY],
+      );
 
       const open = useCallback(() => {
         // Prevent opening if already animating imperatively or already visible
@@ -417,15 +513,33 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
         isImperativelyAnimating.current = true;
         setVisible(true);
 
-        // Set initial translateY position for snap points
-        const initialTranslateY = snapPointsInPixels ? getSnapTranslateY(initialSnapIndex) : 0;
+        // Set initial translateY position
+        // For snap points: use the initial snap index position
+        // For regular mode: start off-screen to animate in like a drawer
+        const initialTranslateY = snapPointsInPixels
+            ? getSnapTranslateY(initialSnapIndex)
+            : screenHeight;
         translateY.setValue(initialTranslateY);
 
-        currentAnimation.current = Animated.timing(backdropOpacityAnim, {
-          toValue: backdropOpacity,
-          duration: animationDuration,
-          useNativeDriver: true,
-        });
+        // Animate both backdrop and sheet position
+        currentAnimation.current = Animated.parallel([
+          Animated.timing(backdropOpacityAnim, {
+            toValue: backdropOpacity,
+            duration: animationDuration,
+            useNativeDriver: true,
+          }),
+          // Animate sheet sliding in from bottom (only for non-snap mode)
+          ...(!snapPointsInPixels
+              ? [
+                Animated.timing(translateY, {
+                  toValue: 0,
+                  duration: animationDuration,
+                  easing: Easing.out(Easing.cubic),
+                  useNativeDriver: true,
+                }),
+              ]
+              : []),
+        ]);
 
         currentAnimation.current.start(() => {
           currentAnimation.current = null;
@@ -436,7 +550,17 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
             onOpen?.();
           }, 0);
         });
-      }, [snapPointsInPixels, initialSnapIndex, backdropOpacity, animationDuration, onOpen, translateY, backdropOpacityAnim, getSnapTranslateY]);
+      }, [
+        snapPointsInPixels,
+        initialSnapIndex,
+        backdropOpacity,
+        animationDuration,
+        onOpen,
+        translateY,
+        backdropOpacityAnim,
+        getSnapTranslateY,
+        screenHeight,
+      ]);
 
       const close = useCallback(() => {
         // Only prevent if already closed (allow swipe gesture to close)
@@ -476,59 +600,236 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
             onClose?.();
           }, 0);
         });
-      }, [animationDuration, screenHeight, onClose, translateY, backdropOpacityAnim]);
+      }, [
+        animationDuration,
+        screenHeight,
+        onClose,
+        translateY,
+        backdropOpacityAnim,
+      ]);
 
       // Handle touch end
-      const handleTouchEnd = useCallback((e: GestureResponderEvent) => {
-        if (!isDragging.current) return;
-        isDragging.current = false;
+      const handleTouchEnd = useCallback(
+          (e: GestureResponderEvent) => {
+            if (!isDragging.current) return;
+            isDragging.current = false;
 
-        const currentTranslateY = (translateY as any)._value || 0;
+            const currentTranslateY = (translateY as any)._value || 0;
 
-        // Handle snap points behavior
-        if (snapPointsInPixels && snapPointsInPixels.length > 0) {
-          const target = findTargetSnapIndex(currentTranslateY);
+            // Handle snap points behavior
+            if (snapPointsInPixels && snapPointsInPixels.length > 0) {
+              const target = findTargetSnapIndex(currentTranslateY);
 
-          if (target === 'close') {
-            close();
-            return;
-          }
+              if (target === 'close') {
+                close();
+                return;
+              }
 
-          // Animate to target snap point
-          animateToSnapPoint(target);
-        } else {
-          const deltaY = e.nativeEvent.pageY - touchStartY.current;
-          // Original behavior without snap points
-          const isSwipeDown = deltaY > dragThreshold;
+              // Animate to target snap point
+              animateToSnapPoint(target);
+            } else {
+              const deltaY = e.nativeEvent.pageY - touchStartY.current;
+              // Original behavior without snap points
+              const isSwipeDown = deltaY > dragThreshold;
 
-          if (isSwipeDown && deltaY > 0) {
-            Animated.parallel([
-              Animated.timing(backdropOpacityAnim, {
-                toValue: 0,
-                duration: 50,
-                useNativeDriver: true,
-              }),
-              Animated.timing(translateY, {
-                toValue: screenHeight + 100,
-                duration: 50,
-                useNativeDriver: true,
-              }),
-            ]).start(() => {
-              setVisible(false);
+              if (isSwipeDown && deltaY > 0) {
+                Animated.parallel([
+                  Animated.timing(backdropOpacityAnim, {
+                    toValue: 0,
+                    duration: 50,
+                    useNativeDriver: true,
+                  }),
+                  Animated.timing(translateY, {
+                    toValue: screenHeight + 100,
+                    duration: 50,
+                    useNativeDriver: true,
+                  }),
+                ]).start(() => {
+                  setVisible(false);
+                  setTimeout(() => {
+                    onClose?.();
+                  }, 0);
+                });
+              } else {
+                Animated.timing(translateY, {
+                  toValue: 0,
+                  duration: 50,
+                  easing: Easing.out(Easing.ease),
+                  useNativeDriver: true,
+                }).start();
+              }
+            }
+          },
+          [
+            snapPointsInPixels,
+            findTargetSnapIndex,
+            animateToSnapPoint,
+            close,
+            translateY,
+            dragThreshold,
+            backdropOpacityAnim,
+            screenHeight,
+            onClose,
+          ],
+      );
+
+      // Handle scroll begin drag - track initial scroll position
+      const handleScrollBeginDrag = useCallback(
+          (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            const { contentOffset } = event.nativeEvent;
+            scrollStartY.current = contentOffset.y;
+            isDraggingSheet.current = false;
+          },
+          [],
+      );
+
+      // Handle scroll end drag - check if user tried to pull down at top to collapse
+      const handleScrollEndDrag = useCallback(
+          (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            if (!snapPointsInPixels || snapPointsInPixels.length === 0) {
+              return;
+            }
+
+            const { contentOffset, velocity } = event.nativeEvent;
+            const currentScrollY = contentOffset.y;
+
+            // Check if scroll started at top (scrollY = 0) and user pulled down
+            const isAtTop = scrollStartY.current <= 0 && currentScrollY <= 0;
+
+            // If at top and has downward velocity (negative means pulling down)
+            if (isAtTop && velocity && velocity.y < -0.3) {
+              // Prevent multiple rapid triggers
+              if (!canExpandFromScroll.current) return;
+
+              canExpandFromScroll.current = false;
+
+              const velocityMagnitude = Math.abs(velocity.y);
+
+              // Check for big/fast swipe - close completely (lowered threshold)
+              if (velocityMagnitude > 1.0) {
+                close();
+              } else {
+                // Normal pull - move to previous snap point
+                const targetIndex = currentSnapIndex - 1;
+
+                // Close if at first snap point or target is below 0
+                if (currentSnapIndex === 0 || targetIndex < 0) {
+                  close();
+                } else {
+                  snapToPoint(targetIndex);
+                }
+              }
+
+              // Reset flag after animation completes
               setTimeout(() => {
-                onClose?.();
-              }, 0);
-            });
-          } else {
-            Animated.timing(translateY, {
-              toValue: 0,
-              duration: 50,
-              easing: Easing.out(Easing.ease),
-              useNativeDriver: true,
-            }).start();
-          }
-        }
-      }, [snapPointsInPixels, findTargetSnapIndex, animateToSnapPoint, close, translateY, dragThreshold, backdropOpacityAnim, screenHeight, onClose]);
+                canExpandFromScroll.current = true;
+              }, 400);
+            }
+          },
+          [snapPointsInPixels, currentSnapIndex, snapToPoint, close],
+      );
+
+      // Handle scroll events for scroll-to-expand behavior
+      const handleScroll = useCallback(
+          (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            if (!enableScrollToExpand || !snapPointsInPixels || snapPointsInPixels.length === 0) {
+              return;
+            }
+
+            const { contentOffset, velocity } = event.nativeEvent;
+            const currentScrollY = contentOffset.y;
+
+            // Store velocity for expansion detection
+            if (velocity) {
+              scrollVelocity.current = velocity.y;
+            }
+
+            // Check if user is scrolling down (trying to see more content below)
+            const isScrollingDown = currentScrollY > lastScrollY.current;
+            // Check if user is scrolling up (at top, trying to go back)
+            const isScrollingUp = currentScrollY < lastScrollY.current;
+            const isAtTop = currentScrollY <= 0;
+
+            // If scrolling down and not at max snap point, expand to show more content
+            if (
+                isScrollingDown &&
+                canExpandFromScroll.current &&
+                currentSnapIndex < snapPointsInPixels.length - 1
+            ) {
+              const scrollDelta = currentScrollY - lastScrollY.current;
+
+              // If scroll delta exceeds threshold or has downward velocity, expand
+              if (scrollDelta >= scrollExpandThreshold || (velocity && velocity.y > 0.8)) {
+                canExpandFromScroll.current = false;
+
+                // Determine how many snap points to jump based on velocity
+                let targetIndex = currentSnapIndex + 1;
+                if (velocity && velocity.y > 3.5) {
+                  // Very big swipe down - jump to the last snap point
+                  targetIndex = snapPointsInPixels.length - 1;
+                } else if (velocity && velocity.y > 2.2) {
+                  // Medium swipe - jump 2 snap points
+                  targetIndex = Math.min(currentSnapIndex + 2, snapPointsInPixels.length - 1);
+                }
+                // Otherwise just move to next snap point (gentle scroll)
+
+                snapToPoint(targetIndex);
+
+                // Reset flag after animation
+                setTimeout(() => {
+                  canExpandFromScroll.current = true;
+                }, 500);
+              }
+            }
+
+            // If scrolling up at the top, collapse to previous snap point or close
+            if (
+                isAtTop &&
+                isScrollingUp &&
+                canExpandFromScroll.current
+            ) {
+              const scrollDelta = Math.abs(lastScrollY.current - currentScrollY);
+
+              // If scroll delta exceeds threshold or has upward velocity
+              if (scrollDelta >= scrollExpandThreshold || (velocity && velocity.y < -0.8)) {
+                canExpandFromScroll.current = false;
+
+                // Determine how many snap points to jump back based on velocity
+                let targetIndex = currentSnapIndex - 1;
+                if (velocity && velocity.y < -3.5) {
+                  // Very big swipe up - jump to first snap point or close
+                  targetIndex = 0;
+                } else if (velocity && velocity.y < -2.2) {
+                  // Medium swipe - jump back 2 snap points
+                  targetIndex = Math.max(currentSnapIndex - 2, 0);
+                }
+                // Otherwise just move to previous snap point (gentle scroll)
+
+                // If target is below 0 or we're at the first snap point, close the modal
+                if (targetIndex < 0 || currentSnapIndex === 0) {
+                  close();
+                } else {
+                  snapToPoint(targetIndex);
+                }
+
+                // Reset flag after animation
+                setTimeout(() => {
+                  canExpandFromScroll.current = true;
+                }, 500);
+              }
+            }
+
+            lastScrollY.current = currentScrollY;
+          },
+          [
+            enableScrollToExpand,
+            snapPointsInPixels,
+            currentSnapIndex,
+            scrollExpandThreshold,
+            snapToPoint,
+            close,
+          ],
+      );
 
       // Expose imperative methods through ref
       useImperativeHandle(ref, () => ({
@@ -537,30 +838,35 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
         present: open,
         dismiss: close,
         snapToPoint,
+        handleScroll,
+        handleScrollBeginDrag,
+        handleScrollEndDrag,
       }));
 
       useEffect(() => {
         if (!visible) {
           translateY.setValue(screenHeight + 100);
           backdropOpacityAnim.setValue(0);
+          // Reset measurement flag when sheet closes
+          hasMeasured.current = false;
+          setMeasuredContentHeight(0);
         }
       }, [visible, screenHeight]);
 
       return (
           <Modal
+              animationType={'fade'}
               transparent={true}
               visible={visible}
               onRequestClose={close}
               statusBarTranslucent
-              accessibilityViewIsModal={true}
+              aria-modal={true}
               {...modalProps}>
             <View style={styles.container}>
               <Pressable
                   onPress={close}
-                  accessible={true}
-                  accessibilityRole="button"
-                  accessibilityLabel={backdropAccessibilityLabel}
-                  accessibilityHint="Tap to close the bottom sheet"
+                  role="button"
+                  aria-label={backdropAriaLabel}
                   style={styles.backdrop}>
                 <Animated.View
                     style={[
@@ -584,12 +890,11 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
                     },
                     containerStyle,
                   ]}
-                  accessible={true}
-                  accessibilityRole="none"
-                  accessibilityLabel={accessibilityLabel}
-                  accessibilityHint={accessibilityHint}
-                  importantForAccessibility="yes"
-                  {...sheetAccessibilityProps}>
+                  accessibilityRole={sheetAriaProps.role as any}
+                  aria-label={ariaLabel}
+                  aria-describedby={ariaDescribedBy}
+                  aria-modal={sheetAriaProps['aria-modal'] ?? true}
+                  aria-hidden={sheetAriaProps['aria-hidden'] ?? false}>
                 <View
                     style={styles.handleContainer}
                     onTouchStart={handleTouchStart}
@@ -598,8 +903,8 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
                   {showHandle && (
                       <Pressable
                           onPress={close}
-                          accessible={true}
-                          accessibilityRole="button"
+                          role="button"
+                          aria-label="Close bottom sheet"
                           style={({pressed}) => [
                             styles.handle,
                             {
@@ -650,7 +955,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   content: {
-    flex: 1,
     minHeight: 50,
   },
 });

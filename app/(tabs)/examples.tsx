@@ -1,176 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   View,
   ScrollView,
   TextInput,
-  Button,
   Pressable,
-  Modal,
   Text,
-  Animated,
-  PanResponder,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
   TouchableOpacity
 } from 'react-native';
-import { NativeViewGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import ModalSheet, { ModalSheetRef } from '../../react-native-modal-sheet/src/ModalSheet';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small' | 'draggable' | 'dynamic' | 'dynamicSmall' | 'dynamicMedium' | 'dynamicLarge' | 'snapPoints';
+type ExampleType = 'actions' | 'form' | 'scroll' | 'large' | 'small' | 'draggable' | 'dynamic' | 'dynamicSmall' | 'dynamicMedium' | 'dynamicLarge' | 'snapPoints' | 'snapPointsTwo';
 
 type DraggableItem = {
   key: string;
   label: string;
   backgroundColor: string;
-};
-
-interface BottomSheetProps {
-  visible: boolean;
-  onClose: () => void;
-  height: number;
-  children: React.ReactNode;
-}
-
-const CustomBottomSheet: React.FC<BottomSheetProps> = ({ visible, onClose, height, children }) => {
-  const [contentHeight, setContentHeight] = useState(300);
-  const effectiveHeight = height > 0 ? height : contentHeight;
-
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-
-  const handlePanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          translateY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 125) {
-          closeSheet();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            damping: 20,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  const openSheet = () => {
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 20,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const closeSheet = () => {
-    Animated.parallel([
-      Animated.timing(backdropOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: SCREEN_HEIGHT,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
-    });
-  };
-
-  const handleContentLayout = (event: any) => {
-    if (height === 0) {
-      const { height: measuredHeight } = event.nativeEvent.layout;
-      // Add padding for handle and margins
-      const totalHeight = Math.max(150, Math.min(measuredHeight + 100, SCREEN_HEIGHT * 0.9));
-      setContentHeight(totalHeight);
-    }
-  };
-
-  useEffect(() => {
-    if (visible) {
-      openSheet();
-    } else {
-      translateY.setValue(SCREEN_HEIGHT);
-      backdropOpacity.setValue(0);
-    }
-  }, [visible]);
-
-  useEffect(() => {
-    if (visible && height === 0) {
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 20,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [contentHeight, visible]);
-
-  return (
-    <Modal
-      transparent={true}
-      visible={visible}
-      onRequestClose={closeSheet}
-    >
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <KeyboardAvoidingView
-          style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <Pressable onPress={closeSheet} style={styles.backdrop}>
-            <Animated.View
-              style={[
-                styles.backdropAnimated,
-                {
-                  opacity: backdropOpacity,
-                },
-              ]}
-            />
-          </Pressable>
-
-          <Animated.View
-            style={[
-              styles.modalContent,
-              {
-                height: effectiveHeight,
-                transform: [{ translateY }],
-              },
-            ]}
-          >
-            <View style={styles.handleArea} {...handlePanResponder.panHandlers}>
-              <View style={styles.handle} />
-            </View>
-            <View onLayout={handleContentLayout}>
-              {children}
-            </View>
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </GestureHandlerRootView>
-    </Modal>
-  );
 };
 
 const getColor = (index: number) => {
@@ -182,7 +29,19 @@ export default function ExamplesScreen() {
   const [activeExample, setActiveExample] = useState<ExampleType | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [currentSnapIndex, setCurrentSnapIndex] = useState(0);
+
+  // Refs for all modal sheets
+  const actionsSheetRef = useRef<ModalSheetRef>(null);
+  const formSheetRef = useRef<ModalSheetRef>(null);
+  const scrollSheetRef = useRef<ModalSheetRef>(null);
+  const largeSheetRef = useRef<ModalSheetRef>(null);
+  const smallSheetRef = useRef<ModalSheetRef>(null);
+  const draggableSheetRef = useRef<ModalSheetRef>(null);
+  const dynamicSmallSheetRef = useRef<ModalSheetRef>(null);
+  const dynamicMediumSheetRef = useRef<ModalSheetRef>(null);
+  const dynamicLargeSheetRef = useRef<ModalSheetRef>(null);
   const snapPointSheetRef = useRef<ModalSheetRef>(null);
+  const snapPointsTwoSheetRef = useRef<ModalSheetRef>(null);
 
   const initialData: DraggableItem[] = [...Array(8)].map((_, index) => ({
     key: `item-${index}`,
@@ -192,21 +51,27 @@ export default function ExamplesScreen() {
 
   const [data, setData] = useState(initialData);
 
-  const getSheetHeight = (type: ExampleType): number => {
-    switch (type) {
-      case 'actions': return 300;
-      case 'form': return 450;
-      case 'scroll': return 600;
-      case 'large': return 700;
-      case 'small': return 200;
-      case 'draggable': return 550;
-      case 'dynamic': return 0; // Auto-size based on content
-      case 'dynamicSmall': return 0; // Auto-size based on content
-      case 'dynamicMedium': return 0; // Auto-size based on content
-      case 'dynamicLarge': return 0; // Auto-size based on content
-      case 'snapPoints': return 0; // Using snap points instead
-      default: return 400;
-    }
+  const openSheet = (type: ExampleType) => {
+    setActiveExample(type);
+    setTimeout(() => {
+      switch (type) {
+        case 'actions': actionsSheetRef.current?.open(); break;
+        case 'form': formSheetRef.current?.open(); break;
+        case 'scroll': scrollSheetRef.current?.open(); break;
+        case 'large': largeSheetRef.current?.open(); break;
+        case 'small': smallSheetRef.current?.open(); break;
+        case 'draggable': draggableSheetRef.current?.open(); break;
+        case 'dynamicSmall': dynamicSmallSheetRef.current?.open(); break;
+        case 'dynamicMedium': dynamicMediumSheetRef.current?.open(); break;
+        case 'dynamicLarge': dynamicLargeSheetRef.current?.open(); break;
+        case 'snapPoints': snapPointSheetRef.current?.open(); break;
+        case 'snapPointsTwo': snapPointsTwoSheetRef.current?.open(); break;
+      }
+    }, 100);
+  };
+
+  const closeSheet = () => {
+    setActiveExample(null);
   };
 
   const renderSheetContent = () => {
@@ -248,7 +113,10 @@ export default function ExamplesScreen() {
                 styles.cancelButton,
                 { opacity: pressed ? 0.8 : 1 }
               ]}
-              onPress={() => setActiveExample(null)}
+              onPress={() => {
+                actionsSheetRef.current?.close();
+                closeSheet();
+              }}
             >
               <Text style={styles.secondaryButtonText}>Cancel</Text>
             </Pressable>
@@ -316,7 +184,7 @@ export default function ExamplesScreen() {
 
       case 'large':
         return (
-          <ScrollView style={styles.sheetContent}>
+          <ScrollView style={styles.sheetContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.sheetTitle}>Terms of Service</Text>
             <Text style={styles.bodyText}>
               Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
@@ -407,19 +275,21 @@ export default function ExamplesScreen() {
         };
 
         return (
-          <View style={{ height: 550 - 72, paddingTop: 10 }}>
-            <Text style={styles.sheetTitle}>Drag & Drop List</Text>
-            <DraggableFlatList
-              data={data}
-              onDragEnd={({ data: newData }) => setData(newData)}
-              keyExtractor={(item) => item.key}
-              renderItem={renderItem}
-              animationConfig={{
-                damping: 20,
-                stiffness: 100,
-              }}
-            />
-          </View>
+          <GestureHandlerRootView style={{ height: 550 - 72 }}>
+            <View style={{ paddingTop: 10, flex: 1 }}>
+              <Text style={styles.sheetTitle}>Drag & Drop List</Text>
+              <DraggableFlatList
+                data={data}
+                onDragEnd={({ data: newData }) => setData(newData)}
+                keyExtractor={(item) => item.key}
+                renderItem={renderItem}
+                animationConfig={{
+                  damping: 20,
+                  stiffness: 100,
+                }}
+              />
+            </View>
+          </GestureHandlerRootView>
         );
 
       case 'dynamicSmall':
@@ -435,7 +305,10 @@ export default function ExamplesScreen() {
                 styles.primaryButton,
                 { opacity: pressed ? 0.8 : 1 }
               ]}
-              onPress={() => setActiveExample(null)}
+              onPress={() => {
+                dynamicSmallSheetRef.current?.close();
+                closeSheet();
+              }}
             >
               <Text style={styles.buttonText}>Close</Text>
             </Pressable>
@@ -467,13 +340,76 @@ export default function ExamplesScreen() {
                 Perfect fit for varying content lengths.
               </Text>
             </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 4</Text>
+              <Text style={styles.dynamicCardText}>
+                Smooth animations with native driver for better performance.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 5</Text>
+              <Text style={styles.dynamicCardText}>
+                Keyboard avoidance built-in for seamless form interactions.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 6</Text>
+              <Text style={styles.dynamicCardText}>
+                Customizable backdrop with adjustable opacity and color.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 7</Text>
+              <Text style={styles.dynamicCardText}>
+                Drag-to-dismiss gesture support for intuitive user experience.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 8</Text>
+              <Text style={styles.dynamicCardText}>
+                Works perfectly with ScrollView and FlatList components.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 9</Text>
+              <Text style={styles.dynamicCardText}>
+                Configurable border radius and background colors.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 10</Text>
+              <Text style={styles.dynamicCardText}>
+                Optional handle indicator for better visual feedback.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 11</Text>
+              <Text style={styles.dynamicCardText}>
+                TypeScript support with full type safety.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 12</Text>
+              <Text style={styles.dynamicCardText}>
+                Lightweight with minimal dependencies.
+              </Text>
+            </View>
+            <View style={styles.dynamicCard}>
+              <Text style={styles.dynamicCardTitle}>Feature 13</Text>
+              <Text style={styles.dynamicCardText}>
+                Cross-platform compatibility for iOS and Android.
+              </Text>
+            </View>
             <Pressable
               style={({ pressed }) => [
                 styles.actionButton,
                 styles.primaryButton,
                 { opacity: pressed ? 0.8 : 1 }
               ]}
-              onPress={() => setActiveExample(null)}
+              onPress={() => {
+                dynamicMediumSheetRef.current?.close();
+                closeSheet();
+              }}
             >
               <Text style={styles.buttonText}>Close</Text>
             </Pressable>
@@ -523,7 +459,10 @@ export default function ExamplesScreen() {
                 styles.primaryButton,
                 { opacity: pressed ? 0.8 : 1 }
               ]}
-              onPress={() => setActiveExample(null)}
+              onPress={() => {
+                dynamicLargeSheetRef.current?.close();
+                closeSheet();
+              }}
             >
               <Text style={styles.buttonText}>Got It!</Text>
             </Pressable>
@@ -539,13 +478,13 @@ export default function ExamplesScreen() {
     <View style={styles.container}>
       <Text style={styles.mainTitle}>Bottom Sheet Examples</Text>
 
-      <ScrollView style={styles.examplesList}>
+      <ScrollView style={styles.examplesList} showsVerticalScrollIndicator={false}>
         <Pressable
           style={({ pressed }) => [
             styles.exampleButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('actions')}
+          onPress={() => openSheet('actions')}
         >
           <Text style={styles.exampleButtonText}>Action Buttons (300px)</Text>
         </Pressable>
@@ -555,7 +494,7 @@ export default function ExamplesScreen() {
             styles.exampleButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('form')}
+          onPress={() => openSheet('form')}
         >
           <Text style={styles.exampleButtonText}>Form Input (450px)</Text>
         </Pressable>
@@ -565,7 +504,7 @@ export default function ExamplesScreen() {
             styles.exampleButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('scroll')}
+          onPress={() => openSheet('scroll')}
         >
           <Text style={styles.exampleButtonText}>Scrollable List (600px)</Text>
         </Pressable>
@@ -575,7 +514,7 @@ export default function ExamplesScreen() {
             styles.exampleButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('large')}
+          onPress={() => openSheet('large')}
         >
           <Text style={styles.exampleButtonText}>Large Content (700px)</Text>
         </Pressable>
@@ -585,7 +524,7 @@ export default function ExamplesScreen() {
             styles.exampleButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('small')}
+          onPress={() => openSheet('small')}
         >
           <Text style={styles.exampleButtonText}>Small Sheet (200px)</Text>
         </Pressable>
@@ -595,7 +534,7 @@ export default function ExamplesScreen() {
             styles.exampleButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('draggable')}
+          onPress={() => openSheet('draggable')}
         >
           <Text style={styles.exampleButtonText}>🎯 Draggable List (550px)</Text>
         </Pressable>
@@ -608,7 +547,7 @@ export default function ExamplesScreen() {
             styles.dynamicButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('dynamicSmall')}
+          onPress={() => openSheet('dynamicSmall')}
         >
           <Text style={styles.exampleButtonText}>📦 Small Content (Auto)</Text>
         </Pressable>
@@ -619,7 +558,7 @@ export default function ExamplesScreen() {
             styles.dynamicButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('dynamicMedium')}
+          onPress={() => openSheet('dynamicMedium')}
         >
           <Text style={styles.exampleButtonText}>📦 Medium Content (Auto)</Text>
         </Pressable>
@@ -630,7 +569,7 @@ export default function ExamplesScreen() {
             styles.dynamicButton,
             { opacity: pressed ? 0.8 : 1 }
           ]}
-          onPress={() => setActiveExample('dynamicLarge')}
+          onPress={() => openSheet('dynamicLarge')}
         >
           <Text style={styles.exampleButtonText}>📦 Large Content (Auto)</Text>
         </Pressable>
@@ -644,41 +583,159 @@ export default function ExamplesScreen() {
             { opacity: pressed ? 0.8 : 1 }
           ]}
           onPress={() => {
-            setActiveExample('snapPoints');
             setCurrentSnapIndex(0);
-            setTimeout(() => snapPointSheetRef.current?.open(), 100);
+            openSheet('snapPoints');
           }}
         >
-          <Text style={styles.exampleButtonText}>🎯 Snap Points (NEW)</Text>
+          <Text style={styles.exampleButtonText}>🎯 Snap Points - 3 Points</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.exampleButton,
+            styles.snapPointsButton,
+            { opacity: pressed ? 0.8 : 1 }
+          ]}
+          onPress={() => {
+            setCurrentSnapIndex(0);
+            openSheet('snapPointsTwo');
+          }}
+        >
+          <Text style={styles.exampleButtonText}>🎯 Snap Points - 2 Points</Text>
         </Pressable>
       </ScrollView>
 
-      {activeExample && activeExample !== 'snapPoints' && (
-        <CustomBottomSheet
-          visible={!!activeExample}
-          onClose={() => setActiveExample(null)}
-          height={getSheetHeight(activeExample)}
-        >
-          {renderSheetContent()}
-        </CustomBottomSheet>
-      )}
+      {/* Actions Modal */}
+      <ModalSheet
+        ref={actionsSheetRef}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'actions' && renderSheetContent()}
+      </ModalSheet>
 
-      {/* Snap Points Modal using ModalSheet component */}
+      {/* Form Modal */}
+      <ModalSheet
+        ref={formSheetRef}
+        height={450}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'form' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Scroll Modal */}
+      <ModalSheet
+        ref={scrollSheetRef}
+        height={600}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'scroll' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Large Modal */}
+      <ModalSheet
+        ref={largeSheetRef}
+        height={700}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'large' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Small Modal */}
+      <ModalSheet
+        ref={smallSheetRef}
+        height={200}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'small' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Draggable List Modal */}
+      <ModalSheet
+        ref={draggableSheetRef}
+        height={550}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'draggable' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Dynamic Small Modal */}
+      <ModalSheet
+        ref={dynamicSmallSheetRef}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'dynamicSmall' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Dynamic Medium Modal */}
+      <ModalSheet
+        ref={dynamicMediumSheetRef}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'dynamicMedium' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Dynamic Large Modal */}
+      <ModalSheet
+        ref={dynamicLargeSheetRef}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+      >
+        {activeExample === 'dynamicLarge' && renderSheetContent()}
+      </ModalSheet>
+
+      {/* Snap Points Modal */}
       <ModalSheet
         ref={snapPointSheetRef}
         snapPoints={[0.3, 0.6, 0.9]}
         initialSnapIndex={0}
+        enableScrollToExpand={true}
+        scrollExpandThreshold={15}
         onSnapPointChange={(index) => setCurrentSnapIndex(index)}
-        onClose={() => setActiveExample(null)}
+        onClose={closeSheet}
         backgroundColor="white"
         borderRadius={20}
         showHandle={true}
         containerStyle={{ paddingBottom: 40 }}
       >
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+        <GestureHandlerRootView style={{ height: '100%' }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            onScroll={(e) => snapPointSheetRef.current?.handleScroll(e)}
+            onScrollBeginDrag={(e) => snapPointSheetRef.current?.handleScrollBeginDrag(e)}
+            onScrollEndDrag={(e) => snapPointSheetRef.current?.handleScrollEndDrag(e)}
+            scrollEventThrottle={16}
+            bounces={true}
+          >
           <Text style={styles.sheetTitle}>🎯 Snap Points Demo</Text>
           <Text style={styles.dynamicSubtitle}>
-            Drag the sheet up or down to snap between different heights!
+            Try gentle scrolls vs fast swipes - the speed controls how far you jump!
           </Text>
 
           <View style={styles.snapIndicator}>
@@ -708,9 +765,11 @@ export default function ExamplesScreen() {
             <Text style={styles.dynamicCardTitle}>📏 How Snap Points Work</Text>
             <Text style={styles.dynamicCardText}>
               • Drag the handle or sheet to move between positions{'\n'}
-              • Release to snap to the nearest point{'\n'}
-              • The sheet intelligently snaps to: 30%, 60%, or 90%{'\n'}
-              • Swipe down from the smallest size to close
+              • Gentle scroll down: expand to next snap point{'\n'}
+              • Fast swipe down: jump to max height instantly{'\n'}
+              • Gentle scroll up at top: collapse to previous snap point{'\n'}
+              • Fast swipe up: jump back or close the modal{'\n'}
+              • The sheet intelligently snaps to: 30%, 60%, or 90%
             </Text>
           </View>
 
@@ -785,12 +844,126 @@ export default function ExamplesScreen() {
             ]}
             onPress={() => {
               snapPointSheetRef.current?.close();
-              setActiveExample(null);
+              closeSheet();
             }}
           >
             <Text style={styles.buttonText}>Close</Text>
           </Pressable>
         </ScrollView>
+        </GestureHandlerRootView>
+      </ModalSheet>
+
+      {/* Snap Points Modal - 2 Points (30% and 90%) */}
+      <ModalSheet
+        ref={snapPointsTwoSheetRef}
+        snapPoints={[0.3, 0.9]}
+        initialSnapIndex={0}
+        enableScrollToExpand={true}
+        scrollExpandThreshold={15}
+        onSnapPointChange={(index) => setCurrentSnapIndex(index)}
+        onClose={closeSheet}
+        backgroundColor="white"
+        borderRadius={20}
+        showHandle={true}
+        containerStyle={{ paddingBottom: 40 }}
+      >
+        <GestureHandlerRootView style={{ height: '100%' }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            onScroll={(e) => snapPointsTwoSheetRef.current?.handleScroll(e)}
+            onScrollBeginDrag={(e) => snapPointsTwoSheetRef.current?.handleScrollBeginDrag(e)}
+            onScrollEndDrag={(e) => snapPointsTwoSheetRef.current?.handleScrollEndDrag(e)}
+            scrollEventThrottle={16}
+            bounces={true}
+          >
+          <Text style={styles.sheetTitle}>🎯 Two Snap Points Demo</Text>
+          <Text style={styles.dynamicSubtitle}>
+            Simple two-position sheet: Small and Large!
+          </Text>
+
+          <View style={styles.snapIndicator}>
+            <Text style={styles.snapIndicatorText}>
+              Current Position: {currentSnapIndex === 0 ? 'Small (30%)' : 'Large (90%)'}
+            </Text>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>📏 Two Snap Points</Text>
+            <Text style={styles.dynamicCardText}>
+              • Only two positions: Small (30%) and Large (90%){'\n'}
+              • Scroll down to expand from small to large{'\n'}
+              • Scroll up at top to collapse from large to small{'\n'}
+              • Scroll up at small to close the modal{'\n'}
+              • Perfect for simpler use cases!
+            </Text>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>💡 Use Cases</Text>
+            <Text style={styles.dynamicCardText}>
+              Ideal for music players, quick settings, notifications, or any UI that needs just a peek view and a full view without intermediate states.
+            </Text>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>⚡ Quick Actions</Text>
+            <Text style={styles.dynamicCardText}>
+              Use the buttons below to quickly jump between positions, or scroll naturally to expand/collapse.
+            </Text>
+          </View>
+
+          <Text style={styles.snapButtonsTitle}>Quick Navigation:</Text>
+          <View style={styles.snapButtonsRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                currentSnapIndex === 0 && styles.snapButtonActive,
+                { opacity: pressed ? 0.7 : 1, flex: 1 }
+              ]}
+              onPress={() => snapPointsTwoSheetRef.current?.snapToPoint(0)}
+            >
+              <Text style={[styles.snapButtonText, currentSnapIndex === 0 && styles.snapButtonTextActive]}>
+                Small{'\n'}30%
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.snapButton,
+                currentSnapIndex === 1 && styles.snapButtonActive,
+                { opacity: pressed ? 0.7 : 1, flex: 1 }
+              ]}
+              onPress={() => snapPointsTwoSheetRef.current?.snapToPoint(1)}
+            >
+              <Text style={[styles.snapButtonText, currentSnapIndex === 1 && styles.snapButtonTextActive]}>
+                Large{'\n'}90%
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.dynamicCard}>
+            <Text style={styles.dynamicCardTitle}>🎨 Customization</Text>
+            <Text style={styles.dynamicCardText}>
+              You can define any two snap points you want: [0.2, 0.8], [0.4, 0.95], or even absolute pixel values like [200, 700].
+            </Text>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionButton,
+              styles.primaryButton,
+              { opacity: pressed ? 0.8 : 1, marginTop: 10 }
+            ]}
+            onPress={() => {
+              snapPointsTwoSheetRef.current?.close();
+              closeSheet();
+            }}
+          >
+            <Text style={styles.buttonText}>Close</Text>
+          </Pressable>
+        </ScrollView>
+        </GestureHandlerRootView>
       </ModalSheet>
     </View>
   );
@@ -824,37 +997,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  backdropAnimated: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
-  },
-  handleArea: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#DDD',
-    borderRadius: 2,
   },
   sheetContent: {
     paddingBottom: 10,
