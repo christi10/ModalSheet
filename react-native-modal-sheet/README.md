@@ -1,41 +1,46 @@
 # React Native Modal Sheet
 
-A performant, gesture-enabled bottom sheet component for React Native using the built-in Modal component. No native dependencies required!
+A performant, gesture-enabled bottom sheet component for React Native with snap points and scroll-to-expand functionality. No native dependencies required!
 
 <p align="center">
+  <img src="https://img.shields.io/npm/v/rn-modal-bottom-sheet" alt="npm version">
   <img src="https://img.shields.io/badge/platform-ios%20%7C%20android-lightgrey.svg" alt="Platforms">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/typescript-supported-blue.svg" alt="TypeScript">
 </p>
 
-## Features
+## ✨ Features
 
-- 🎯 **Snap Points** - Multi-point snapping with smooth transitions (NEW in v1.1.0!)
-- 🎨 **Smooth Animations** - 60fps native-driven animations with transform-based approach
-- 🚀 **High Performance** - No layout recalculations, content rendered once
+- 🎯 **Snap Points** - Multiple snap positions with intelligent detection
+- 📜 **Scroll-to-Expand** - Automatically expand to next snap point while scrolling
+- 👆 **Pull-to-Collapse** - Pull down at the top to collapse or close
+- 🎨 **Smooth Animations** - Buttery smooth bezier easing with 60fps performance
+- 🚀 **High Performance** - Transform-based animations, no layout recalculations
 - 🎯 **Zero Native Dependencies** - Built with React Native's Animated API
 - 📱 **Cross Platform** - Works on both iOS and Android
 - 🎭 **Backdrop Animation** - Independent opacity animation for backdrop
-- 👆 **Gesture Support** - Drag to snap or close with intelligent detection
+- 👆 **Gesture Support** - Drag to close with customizable threshold
 - 🎨 **Fully Customizable** - Customize colors, dimensions, and animations
 - 📦 **Lightweight** - Minimal overhead, no external dependencies
-- 🎯 **Modern Pressable API** - Uses Pressable for better touch feedback and accessibility
+- ♿ **ARIA Compliant** - Full accessibility support with ARIA attributes
 - 🔒 **TypeScript Support** - Full TypeScript definitions included
 
-## Installation
+## 📦 Installation
 
 ```bash
-npm install react-native-modal-sheet
+npm install rn-modal-bottom-sheet
 # or
-yarn add react-native-modal-sheet
+yarn add rn-modal-bottom-sheet
 ```
 
-## Quick Start
+## 🚀 Quick Start
+
+### Basic Usage
 
 ```tsx
 import React, { useRef } from 'react';
 import { Button, Text, View } from 'react-native';
-import ModalSheet, { ModalSheetRef } from 'react-native-modal-sheet';
+import ModalSheet, { ModalSheetRef } from 'rn-modal-bottom-sheet';
 
 function App() {
   const sheetRef = useRef<ModalSheetRef>(null);
@@ -43,7 +48,7 @@ function App() {
   return (
     <View style={{ flex: 1 }}>
       <Button title="Open Sheet" onPress={() => sheetRef.current?.open()} />
-      
+
       <ModalSheet ref={sheetRef} height={400}>
         <Text style={{ fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>
           Hello Bottom Sheet! 👋
@@ -54,18 +59,63 @@ function App() {
 }
 ```
 
-## API Reference
+### With Snap Points
+
+```tsx
+import { useRef, useState } from 'react';
+
+function MyComponent() {
+  const sheetRef = useRef<ModalSheetRef>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  return (
+    <ModalSheet
+      ref={sheetRef}
+      snapPoints={[0.3, 0.6, 0.9]} // 30%, 60%, 90% of screen height
+      initialSnapIndex={0}
+      onSnapPointChange={(index) => setCurrentIndex(index)}
+    >
+      <Text>Current snap point: {currentIndex}</Text>
+    </ModalSheet>
+  );
+}
+```
+
+### With Scroll-to-Expand (NEW in v2.0.0!)
+
+```tsx
+import { ScrollView } from 'react-native';
+
+<ModalSheet
+  ref={sheetRef}
+  snapPoints={[0.3, 0.9]}
+  enableScrollToExpand={true}
+  scrollExpandThreshold={20}
+>
+  <ScrollView
+    onScroll={(e) => sheetRef.current?.handleScroll(e)}
+    onScrollBeginDrag={(e) => sheetRef.current?.handleScrollBeginDrag(e)}
+    onScrollEndDrag={(e) => sheetRef.current?.handleScrollEndDrag(e)}
+    scrollEventThrottle={16}
+  >
+    {/* Your scrollable content */}
+  </ScrollView>
+</ModalSheet>
+```
+
+## 📚 API Reference
 
 ### Props
-
-#### Basic Props
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `children` | `ReactNode` | **Required** | Content to be rendered inside the bottom sheet |
-| `height` | `number` | - | Height of the bottom sheet in pixels (auto-sizes if not provided) |
-| `maxHeight` | `number` | 90% of screen | Maximum height constraint for auto-sizing |
-| `minHeight` | `number` | `150` | Minimum height constraint for auto-sizing |
+| `height` | `number` | `400` | Height of the bottom sheet in pixels |
+| `snapPoints` | `number[]` | - | Array of snap points as percentages (0-1) or pixels |
+| `initialSnapIndex` | `number` | `0` | Which snap point to open to initially |
+| `enableScrollToExpand` | `boolean` | `true` | Enable scroll-to-expand behavior |
+| `scrollExpandThreshold` | `number` | `50` | Pixels to scroll before triggering transition |
+| `onSnapPointChange` | `(index: number) => void` | - | Callback when snap point changes |
 | `onClose` | `() => void` | - | Callback when the sheet is closed |
 | `onOpen` | `() => void` | - | Callback when the sheet is opened |
 | `backgroundColor` | `string` | `'white'` | Background color of the sheet |
@@ -74,34 +124,9 @@ function App() {
 | `handleColor` | `string` | `'#DDD'` | Color of the drag handle |
 | `backdropOpacity` | `number` | `0.5` | Opacity of the backdrop (0-1) |
 | `dragThreshold` | `number` | `125` | Distance to drag before sheet closes |
-| `animationDuration` | `number` | `300` | Animation duration in milliseconds |
-| `springDamping` | `number` | `20` | Spring animation damping value |
-| `containerStyle` | `ViewStyle` | - | Custom styles for the sheet container |
-| `modalProps` | `Partial<ModalProps>` | - | Additional props for the Modal component |
-
-#### Snap Points Props (NEW in v1.1.0)
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `snapPoints` | `number[]` | - | Array of snap positions (0-1 for percentage, >1 for pixels). Example: `[0.3, 0.6, 0.9]` |
-| `initialSnapIndex` | `number` | `0` | Initial snap point index to open at |
-| `enableScrollToExpand` | `boolean` | `false` | Enable scroll-to-expand behavior (expand to next snap on scroll) |
-| `onSnapPointChange` | `(index: number) => void` | - | Callback when snap point changes, receives new index |
-
-#### Accessibility Props
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `accessibilityLabel` | `string` | `'Bottom sheet'` | Accessibility label for the modal |
-| `accessibilityHint` | `string` | - | Accessibility hint for the modal |
-| `backdropAccessibilityLabel` | `string` | `'Close bottom sheet'` | Accessibility label for the backdrop |
-| `handleAccessibilityLabel` | `string` | `'Drag to close'` | Accessibility label for the drag handle |
-| `handleAccessibilityHint` | `string` | `'Double tap to close, or drag down'` | Accessibility hint for the drag handle |
-| `openAccessibilityAnnouncement` | `string` | `'Bottom sheet opened'` | Announcement when sheet opens |
-| `closeAccessibilityAnnouncement` | `string` | `'Bottom sheet closed'` | Announcement when sheet closes |
-| `autoFocus` | `boolean` | `true` | Whether to focus on sheet content when opened |
-| `accessibilityLiveRegion` | `'none' \| 'polite' \| 'assertive'` | `'polite'` | Live region setting for announcements |
-| `sheetAccessibilityProps` | `object` | `{}` | Additional accessibility props for the sheet container |
+| `aria-label` | `string` | `'Bottom sheet'` | Accessible label for the modal |
+| `aria-describedby` | `string` | - | ID of element describing the modal |
+| `backdropAriaLabel` | `string` | `'Close bottom sheet'` | Accessible label for backdrop |
 
 ### Methods (via ref)
 
@@ -111,197 +136,12 @@ function App() {
 | `close()` | Closes the bottom sheet |
 | `present()` | Alias for `open()` |
 | `dismiss()` | Alias for `close()` |
-| `snapToPoint(index)` | Snap to a specific snap point by index (NEW in v1.1.0) |
+| `snapToPoint(index)` | Snap to a specific snap point by index |
+| `handleScroll(event)` | Process scroll events for scroll-to-expand |
+| `handleScrollBeginDrag(event)` | Track scroll start position |
+| `handleScrollEndDrag(event)` | Handle pull-to-collapse gestures |
 
-## Examples
-
-### Snap Points (NEW in v1.1.0)
-
-Snap points allow your bottom sheet to snap to predefined heights, similar to Apple Maps or Spotify's player.
-
-```tsx
-import React, { useRef, useState } from 'react';
-import { Button, Text, View, StyleSheet, ScrollView } from 'react-native';
-import ModalSheet, { ModalSheetRef } from 'react-native-modal-sheet';
-
-function SnapPointsExample() {
-  const sheetRef = useRef<ModalSheetRef>(null);
-  const [currentSnap, setCurrentSnap] = useState(0);
-
-  return (
-    <View style={styles.container}>
-      <Button title="Open Sheet" onPress={() => sheetRef.current?.open()} />
-
-      <ModalSheet
-        ref={sheetRef}
-        snapPoints={[0.3, 0.6, 0.9]}  // 30%, 60%, 90% of screen height
-        initialSnapIndex={0}
-        onSnapPointChange={(index) => setCurrentSnap(index)}
-        onClose={() => console.log('Sheet closed')}
-      >
-        <ScrollView showsVerticalScrollIndicator={false}> 
-          <Text style={styles.title}>Snap Points Demo</Text>
-          <Text style={styles.subtitle}>
-            Currently at: {currentSnap === 0 ? 'Small (30%)' : currentSnap === 1 ? 'Medium (60%)' : 'Large (90%)'}
-          </Text>
-
-          <View style={styles.buttonRow}>
-            <Button title="Small" onPress={() => sheetRef.current?.snapToPoint(0)} />
-            <Button title="Medium" onPress={() => sheetRef.current?.snapToPoint(1)} />
-            <Button title="Large" onPress={() => sheetRef.current?.snapToPoint(2)} />
-          </View>
-
-          {/* Add your content here */}
-          <Text style={styles.content}>
-            Drag the sheet up or down to snap between different heights!
-            The sheet will automatically snap to the nearest point.
-          </Text>
-        </ScrollView>
-      </ModalSheet>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  content: {
-    fontSize: 16,
-    lineHeight: 24,
-    padding: 20,
-  },
-});
-```
-
-#### Snap Points with Absolute Pixels
-
-```tsx
-<ModalSheet
-  ref={sheetRef}
-  snapPoints={[300, 600, 900]}  // Absolute pixel values
-  initialSnapIndex={1}  // Start at 600px
->
-  {/* Your content */}
-</ModalSheet>
-```
-
-#### Music Player Example (Instagram/Spotify Style)
-
-```tsx
-function MusicPlayerSheet() {
-  const sheetRef = useRef<ModalSheetRef>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  return (
-    <ModalSheet
-      ref={sheetRef}
-      snapPoints={[0.15, 0.5, 0.95]}  // Mini player, half screen, full screen
-      initialSnapIndex={0}
-      backgroundColor="#1a1a1a"
-      handleColor="#666"
-    >
-      <View style={{ padding: 20 }}>
-        {/* Mini player view at 15% */}
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={albumArt} style={{ width: 50, height: 50, borderRadius: 8 }} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>Song Title</Text>
-            <Text style={{ color: '#999', fontSize: 14 }}>Artist Name</Text>
-          </View>
-          <Button title={isPlaying ? '⏸' : '▶️'} onPress={() => setIsPlaying(!isPlaying)} />
-        </View>
-
-        {/* Full player controls shown at higher snap points */}
-        <View style={{ marginTop: 40 }}>
-          <Text style={{ color: 'white' }}>Progress bar, lyrics, etc.</Text>
-        </View>
-      </View>
-    </ModalSheet>
-  );
-}
-```
-
-### Basic Usage
-
-```tsx
-import React, { useRef } from 'react';
-import { Button, Text, View, StyleSheet, Pressable } from 'react-native';
-import ModalSheet, { ModalSheetRef } from 'react-native-modal-sheet';
-
-function BasicExample() {
-  const sheetRef = useRef<ModalSheetRef>(null);
-
-  return (
-    <View style={styles.container}>
-      <Button title="Open Sheet" onPress={() => sheetRef.current?.open()} />
-      
-      <ModalSheet ref={sheetRef} height={300}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Basic Bottom Sheet</Text>
-          <Pressable 
-            style={({ pressed }) => [
-              styles.closeButton,
-              { opacity: pressed ? 0.8 : 1 }
-            ]}
-            onPress={() => sheetRef.current?.close()}
-          >
-            <Text style={styles.closeButtonText}>Close</Text>
-          </Pressable>
-        </View>
-      </ModalSheet>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  closeButton: {
-    backgroundColor: '#007AFF',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
-```
+## 🎨 Examples
 
 ### Custom Styling
 
@@ -318,476 +158,85 @@ const styles = StyleSheet.create({
 </ModalSheet>
 ```
 
-### With Scrollable Content
+### Music Player (Two Snap Points)
 
 ```tsx
-import { ScrollView } from 'react-native';
+<ModalSheet
+  ref={sheetRef}
+  snapPoints={[0.15, 0.9]} // Mini player and full player
+  initialSnapIndex={0}
+  enableScrollToExpand={true}
+>
+  {/* Your music player UI */}
+</ModalSheet>
+```
 
+### Scrollable Content
+
+```tsx
 <ModalSheet ref={sheetRef} height={600}>
   <ScrollView showsVerticalScrollIndicator={false}>
-    {[...Array(50)].map((_, i) => (
-      <Text key={i} style={{ padding: 20 }}>Item {i + 1}</Text>
+    {items.map((item) => (
+      <Text key={item.id}>{item.name}</Text>
     ))}
   </ScrollView>
 </ModalSheet>
 ```
 
-### Form Example
+## 🎯 Scroll-to-Expand Behavior
 
-```tsx
-import { TextInput, Pressable } from 'react-native';
+The scroll-to-expand feature allows users to naturally expand the sheet by scrolling down:
 
-<ModalSheet ref={sheetRef} height={400}>
-  <View style={{ padding: 20 }}>
-    <Text style={styles.title}>Contact Form</Text>
-    
-    <TextInput
-      style={styles.input}
-      placeholder="Name"
-      placeholderTextColor="#999"
-    />
-    
-    <TextInput
-      style={styles.input}
-      placeholder="Email"
-      keyboardType="email-address"
-      placeholderTextColor="#999"
-    />
-    
-    <TextInput
-      style={[styles.input, { height: 100 }]}
-      placeholder="Message"
-      multiline
-      textAlignVertical="top"
-      placeholderTextColor="#999"
-    />
-    
-    <Pressable 
-      style={({ pressed }) => [
-        styles.button,
-        { opacity: pressed ? 0.8 : 1 }
-      ]}
-    >
-      <Text style={styles.buttonText}>Submit</Text>
-    </Pressable>
-  </View>
-</ModalSheet>
-```
+- **Gentle scroll down**: Expands to next snap point
+- **Medium swipe down**: Jumps 2 snap points
+- **Fast swipe down**: Jumps to maximum height
 
-### Action Sheet Style
+And collapse by pulling up at the top:
 
-```tsx
-<ModalSheet 
-  ref={sheetRef} 
-  height={300}
-  dragThreshold={50}
-  animationDuration={250}
->
-  <View style={{ padding: 20 }}>
-    <Pressable 
-      style={({ pressed }) => [
-        styles.actionButton,
-        { opacity: pressed ? 0.8 : 1 }
-      ]}
-    >
-      <Text>Share</Text>
-    </Pressable>
-    <Pressable 
-      style={({ pressed }) => [
-        styles.actionButton,
-        { opacity: pressed ? 0.8 : 1 }
-      ]}
-    >
-      <Text>Edit</Text>
-    </Pressable>
-    <Pressable 
-      style={({ pressed }) => [
-        styles.actionButton, 
-        styles.deleteButton,
-        { opacity: pressed ? 0.8 : 1 }
-      ]}
-    >
-      <Text style={{ color: 'red' }}>Delete</Text>
-    </Pressable>
-  </View>
-</ModalSheet>
-```
+- **Gentle pull up**: Collapses to previous snap point
+- **Fast swipe up**: Closes the sheet immediately
 
-## Advanced Usage
+## ♿ Accessibility
 
-### Controlled State
+Fully accessible with WCAG compliance:
 
-```tsx
-function ControlledExample() {
-  const sheetRef = useRef<ModalSheetRef>(null);
-  const [isOpen, setIsOpen] = useState(false);
+- ✅ **ARIA Attributes** - Modern `aria-label`, `aria-modal`, `aria-describedby`
+- ✅ **Screen Reader Support** - Proper labeling for all interactive elements
+- ✅ **Keyboard Navigation** - Full keyboard support
+- ✅ **Focus Management** - Correct focus handling
+- ✅ **Gesture Alternatives** - Alternative methods for all gestures
 
-  const handleOpen = () => {
-    setIsOpen(true);
-    sheetRef.current?.open();
-  };
+## 🚀 Performance
 
-  const handleClose = () => {
-    setIsOpen(false);
-    sheetRef.current?.close();
-  };
+- **Transform-Based**: Uses `translateY` transforms for 60fps animations
+- **Native Driver**: All animations run on the UI thread
+- **Smooth Easing**: Custom bezier curve (0.25, 0.1, 0.25, 1)
+- **No Layout Recalculations**: Content pre-rendered once
+- **Optimized**: Efficient re-renders and memory management
 
-  return (
-    <View>
-      <Text>Sheet is {isOpen ? 'open' : 'closed'}</Text>
-      <Button title="Toggle" onPress={isOpen ? handleClose : handleOpen} />
-      
-      <ModalSheet
-        ref={sheetRef}
-        onClose={() => setIsOpen(false)}
-        onOpen={() => setIsOpen(true)}
-      >
-        <Text>Controlled Sheet</Text>
-      </ModalSheet>
-    </View>
-  );
-}
-```
+## 📱 Platform Support
 
-### Dynamic Height
+- ✅ iOS
+- ✅ Android
+- ✅ Expo
+- ✅ React Native CLI
 
-```tsx
-function DynamicHeightExample() {
-  const sheetRef = useRef<ModalSheetRef>(null);
-  const [sheetHeight, setSheetHeight] = useState(300);
+## 🔗 Links
 
-  return (
-    <View>
-      <Button title="Small (300px)" onPress={() => setSheetHeight(300)} />
-      <Button title="Medium (500px)" onPress={() => setSheetHeight(500)} />
-      <Button title="Large (700px)" onPress={() => setSheetHeight(700)} />
-      
-      <ModalSheet ref={sheetRef} height={sheetHeight}>
-        <Text>Height: {sheetHeight}px</Text>
-      </ModalSheet>
-    </View>
-  );
-}
-```
+- [GitHub Repository](https://github.com/christi10/ModalSheet)
+- [Changelog](https://github.com/christi10/ModalSheet/blob/main/CHANGELOG.md)
+- [Issues](https://github.com/christi10/ModalSheet/issues)
 
-### With Keyboard
+## 📄 License
 
-```tsx
-import { KeyboardAvoidingView, Platform } from 'react-native';
+MIT © Christian
 
-<ModalSheet ref={sheetRef} height={400}>
-  <KeyboardAvoidingView 
-    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    style={{ flex: 1 }}
-  >
-    <TextInput placeholder="Type here..." />
-  </KeyboardAvoidingView>
-</ModalSheet>
-```
+## ☕ Support
 
-## Styling Guide
+If you find this project helpful, consider supporting:
 
-### Custom Handle
-
-```tsx
-<ModalSheet
-  ref={sheetRef}
-  showHandle={false}
-  containerStyle={{ paddingTop: 0 }}
->
-  <View style={customHandleStyles.handle}>
-    <View style={customHandleStyles.handleBar} />
-    <Text style={customHandleStyles.handleText}>Swipe down to close</Text>
-  </View>
-  {/* Your content */}
-</ModalSheet>
-```
-
-### Gradient Background
-
-```tsx
-import LinearGradient from 'react-native-linear-gradient';
-
-<ModalSheet ref={sheetRef} backgroundColor="transparent">
-  <LinearGradient
-    colors={['#4c669f', '#3b5998', '#192f6a']}
-    style={{ flex: 1, borderRadius: 20 }}
-  >
-    {/* Your content */}
-  </LinearGradient>
-</ModalSheet>
-```
-
-## Performance Tips
-
-1. **Avoid Heavy Computations**: Keep render methods lightweight
-2. **Use React.memo**: Memoize child components when possible
-3. **Optimize Lists**: Use FlatList for long scrollable content
-4. **Lazy Load Content**: Load heavy content after sheet opens
-
-```tsx
-function OptimizedSheet() {
-  const sheetRef = useRef<ModalSheetRef>(null);
-  const [content, setContent] = useState(null);
-
-  return (
-    <ModalSheet 
-      ref={sheetRef}
-      onOpen={() => {
-        // Load heavy content after opening
-        loadHeavyContent().then(setContent);
-      }}
-      onClose={() => setContent(null)}
-    >
-      {content ? <HeavyComponent data={content} /> : <LoadingSpinner />}
-    </ModalSheet>
-  );
-}
-```
-
-## Accessibility
-
-The component is **fully accessible** and follows WCAG guidelines. It includes comprehensive accessibility support out of the box.
-
-### Built-in Accessibility Features
-
-- ✅ **Screen Reader Support** - Proper labeling and hints for all interactive elements
-- ✅ **Voice Announcements** - Announces when sheet opens/closes
-- ✅ **Focus Management** - Handles focus correctly when modal appears
-- ✅ **Semantic Roles** - Uses proper ARIA roles (dialog, button)
-- ✅ **Gesture Alternatives** - Touch alternatives for drag gestures
-- ✅ **Live Regions** - Updates are announced to screen readers
-- ✅ **Modal Behavior** - Proper modal accessibility with backdrop handling
-
-### Default Accessibility Configuration
-
-```tsx
-// These are applied automatically
-<ModalSheet
-  accessibilityLabel="Bottom sheet"
-  backdropAccessibilityLabel="Close bottom sheet"
-  handleAccessibilityLabel="Drag to close"
-  handleAccessibilityHint="Double tap to close, or drag down"
-  openAccessibilityAnnouncement="Bottom sheet opened"
-  closeAccessibilityAnnouncement="Bottom sheet closed"
-  accessibilityLiveRegion="polite"
->
-  {/* Your content */}
-</ModalSheet>
-```
-
-### Custom Accessibility Labels
-
-```tsx
-<ModalSheet
-  ref={sheetRef}
-  accessibilityLabel="Settings menu"
-  accessibilityHint="Contains app settings and preferences"
-  backdropAccessibilityLabel="Close settings menu"
-  openAccessibilityAnnouncement="Settings menu opened"
-  closeAccessibilityAnnouncement="Settings menu closed"
->
-  <Text accessibilityRole="header">Settings</Text>
-  {/* Settings content */}
-</ModalSheet>
-```
-
-### Advanced Accessibility Configuration
-
-```tsx
-<ModalSheet
-  ref={sheetRef}
-  accessibilityLiveRegion="assertive"  // For important announcements
-  sheetAccessibilityProps={{
-    accessibilityRole: "menu",
-    accessibilityState: { expanded: true },
-    importantForAccessibility: "yes"
-  }}
-  handleAccessibilityLabel="Close button"
-  autoFocus={true}
->
-  {/* Content with proper accessibility */}
-  <TouchableOpacity 
-    accessibilityRole="menuitem"
-    accessibilityLabel="Profile settings"
-  >
-    <Text>Profile</Text>
-  </TouchableOpacity>
-</ModalSheet>
-```
-
-### Accessibility Best Practices
-
-#### 1. Use Semantic Content
-
-```tsx
-<ModalSheet ref={sheetRef} accessibilityLabel="User profile options">
-  <Text accessibilityRole="header" style={styles.title}>
-    Profile Options
-  </Text>
-  
-  <Pressable 
-    style={({ pressed }) => [
-      styles.menuItem,
-      { backgroundColor: pressed ? '#F2F2F7' : 'transparent' }
-    ]}
-    accessibilityRole="button"
-    accessibilityLabel="Edit profile information"
-    accessibilityHint="Opens profile editing screen"
-  >
-    <Text>Edit Profile</Text>
-  </Pressable>
-  
-  <Pressable 
-    style={({ pressed }) => [
-      styles.menuItem,
-      { backgroundColor: pressed ? '#F2F2F7' : 'transparent' }
-    ]}
-    accessibilityRole="button"
-    accessibilityLabel="Account settings"
-  >
-    <Text>Settings</Text>
-  </Pressable>
-</ModalSheet>
-```
-
-#### 2. Form Accessibility
-
-```tsx
-<ModalSheet 
-  ref={sheetRef}
-  accessibilityLabel="Contact form"
-  closeAccessibilityAnnouncement="Contact form closed"
->
-  <Text accessibilityRole="header">Contact Us</Text>
-  
-  <TextInput
-    accessibilityLabel="Your name"
-    accessibilityHint="Enter your full name"
-    placeholder="Name"
-  />
-  
-  <TextInput
-    accessibilityLabel="Email address"
-    accessibilityHint="Enter a valid email address"
-    keyboardType="email-address"
-    placeholder="Email"
-  />
-  
-  <Pressable 
-    style={({ pressed }) => [
-      styles.submitButton,
-      { opacity: pressed ? 0.8 : 1 }
-    ]}
-    accessibilityRole="button"
-    accessibilityLabel="Submit form"
-    accessibilityHint="Sends your message"
-  >
-    <Text>Send Message</Text>
-  </Pressable>
-</ModalSheet>
-```
-
-#### 3. List/Menu Accessibility
-
-```tsx
-<ModalSheet 
-  ref={sheetRef}
-  accessibilityLabel="Country selection"
-  sheetAccessibilityProps={{
-    accessibilityRole: "menu"
-  }}
->
-  <Text accessibilityRole="header">Select Country</Text>
-  
-  <ScrollView showsVerticalScrollIndicator={false}>
-    {countries.map((country) => (
-      <Pressable
-        key={country.code}
-        style={({ pressed }) => [
-          styles.countryItem,
-          { backgroundColor: pressed ? '#F2F2F7' : 'transparent' }
-        ]}
-        accessibilityRole="menuitem"
-        accessibilityLabel={`Select ${country.name}`}
-        accessibilityHint={`Country code ${country.code}`}
-      >
-        <Text>{country.name}</Text>
-      </Pressable>
-    ))}
-  </ScrollView>
-</ModalSheet>
-```
-
-### Testing Accessibility
-
-#### iOS (VoiceOver)
-1. Enable VoiceOver in Settings > Accessibility
-2. Navigate through the sheet using swipe gestures
-3. Verify all elements are announced correctly
-4. Test double-tap gestures on interactive elements
-
-#### Android (TalkBack)
-1. Enable TalkBack in Settings > Accessibility
-2. Use explore-by-touch to navigate
-3. Verify semantic roles and labels
-4. Test gesture alternatives
-
-### Accessibility Props Reference
-
-```tsx
-// Complete accessibility interface
-interface ModalSheetAccessibilityProps {
-  accessibilityLabel?: string;
-  accessibilityHint?: string;
-  backdropAccessibilityLabel?: string;
-  handleAccessibilityLabel?: string;
-  handleAccessibilityHint?: string;
-  openAccessibilityAnnouncement?: string;
-  closeAccessibilityAnnouncement?: string;
-  autoFocus?: boolean;
-  accessibilityLiveRegion?: 'none' | 'polite' | 'assertive';
-  sheetAccessibilityProps?: {
-    accessibilityRole?: string;
-    accessibilityState?: any;
-    importantForAccessibility?: 'auto' | 'yes' | 'no' | 'no-hide-descendants';
-  };
-}
-```
-
-## Troubleshooting
-
-### Sheet not showing
-- Ensure you're calling `ref.current?.open()`
-- Check that the ref is properly attached
-- Verify the sheet has content and height
-
-### Gesture not working
-- Ensure no conflicting gesture handlers
-- Check `dragThreshold` value
-- Verify touch events aren't blocked
-
-### Performance issues
-- Reduce animation complexity
-- Use `useNativeDriver: true` (already enabled)
-- Optimize child component renders
-
-## Contributing
-
-Contributions are welcome! Please read our [contributing guidelines](https://github.com/christi10/ModalSheet/blob/main/.github/CONTRIBUTING.md) first.
-
-## Support
-
-If you find this package helpful, consider supporting its development:
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-☕-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/christi10)
-
-Your support helps maintain and improve this package!
-
-## License
-
-MIT © [Christian]
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-☕-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/kareemtab)
 
 ---
 
-Made with ❤️ using React Native
+**Made with ❤️ using React Native**
