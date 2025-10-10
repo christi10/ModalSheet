@@ -9,27 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.1] - 2025-10-10
 
-### Changed
-- **Major Internal Refactoring**: Complete architectural overhaul for better maintainability
-  - Separated component logic into modular structure with dedicated directories
-  - Extracted custom hooks for keyboard handling, animations, gestures, and scroll behavior
-  - Moved TypeScript interfaces to centralized types module
-  - Extracted styles into separate StyleSheet module
-  - Created utility functions and constants modules
-  - Reduced main component from 1166 lines to ~350 lines
-
-### Improved
-- **Code Organization**: Clear separation of concerns with single-responsibility modules
-- **Maintainability**: Each feature now in its own file for easier updates
-- **Developer Experience**: More intuitive file structure for contributions
-- **Type Safety**: Centralized type definitions for better consistency
-- **Performance**: Potential performance improvements through optimized hook usage
-- **Testing**: Modular structure enables easier unit testing
-
-### Technical Details
-- No breaking changes - API remains identical
-- All existing features preserved
-- Backwards compatible with v2.1.0
+### Fixed
+- Restored original single-file architecture to resolve module export issues
+- Fixed "Element type is invalid" error that occurred with modular structure
 
 ## [2.1.0] - 2025-10-10
 

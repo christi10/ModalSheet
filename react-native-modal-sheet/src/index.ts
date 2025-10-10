@@ -3,4 +3,4 @@ export type {
   ModalSheetRef,
   ModalSheetProps,
   ModalSheetAccessibilityProps
-} from './ModalSheet/types';
+} from './ModalSheet';
