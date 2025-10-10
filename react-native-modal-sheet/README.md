@@ -5,6 +5,12 @@
 
 A performant, gesture-enabled bottom sheet component for React Native with snap points and scroll-to-expand functionality. No native dependencies required!
 
+## 📱 Demo
+
+https://github.com/user-attachments/assets/modal-sheet-demo
+
+> 🎥 [View Demo Video](./docs/assets/modal-sheet-demo.mp4) - Click to watch the modal sheet in action with snap points, scroll-to-expand, and smooth animations!
+
 <p align="center">
   <img src="https://img.shields.io/npm/v/rn-modal-bottom-sheet" alt="npm version">
   <img src="https://img.shields.io/badge/platform-ios%20%7C%20android-lightgrey.svg" alt="Platforms">
