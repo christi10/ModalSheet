@@ -7,9 +7,16 @@ A performant, gesture-enabled bottom sheet component for React Native with snap 
 
 ## 📱 Demo
 
-https://github.com/user-attachments/assets/modal-sheet-demo
+> 🎥 **[Click here to view Demo Video](https://github.com/christi10/ModalSheet/blob/main/docs/assets/modal-sheet-demo.mp4)** - See the modal sheet in action with snap points, scroll-to-expand, and smooth animations!
 
-> 🎥 [View Demo Video](./docs/assets/modal-sheet-demo.mp4) - Click to watch the modal sheet in action with snap points, scroll-to-expand, and smooth animations!
+<!-- Video will be embedded here after uploading through GitHub issue -->
+<!-- To embed:
+1. Go to https://github.com/christi10/ModalSheet/issues
+2. Create a new issue or open an existing one
+3. Drag and drop the modal-sheet-demo.mp4 file into the comment box
+4. GitHub will generate a URL like: https://github.com/user-attachments/assets/[id]
+5. Replace this comment with that URL
+-->
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/rn-modal-bottom-sheet" alt="npm version">
