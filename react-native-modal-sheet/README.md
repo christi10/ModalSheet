@@ -1,5 +1,8 @@
 # React Native Modal Sheet
 
+[![npm version](https://img.shields.io/npm/v/rn-modal-bottom-sheet.svg)](https://www.npmjs.com/package/rn-modal-bottom-sheet)
+[![npm downloads](https://img.shields.io/npm/dt/rn-modal-bottom-sheet.svg)](https://www.npmjs.com/package/rn-modal-bottom-sheet)
+
 A performant, gesture-enabled bottom sheet component for React Native with snap points and scroll-to-expand functionality. No native dependencies required!
 
 <p align="center">
