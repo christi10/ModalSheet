@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2025-10-10
+
+### Added
+- **`enableDragAndDrop` Prop**: New optional prop for automatic GestureHandlerRootView wrapping
+  - Set to `true` when using gesture-based components like DraggableFlatList
+  - Eliminates need for manual GestureHandlerRootView wrapper in modal content
+  - Default is `false` for better performance when gesture handling is not needed
+  - Simplifies integration with react-native-draggable-flatlist and similar libraries
+
+### Improved
+- **Cleaner API**: Gesture-enabled components now work with a simple prop toggle
+- **Better Performance**: GestureHandlerRootView only added when explicitly needed
+- **Developer Experience**: Removed boilerplate code from examples
+
+### Dependencies
+- Added `react-native-gesture-handler` as a peer dependency (when using `enableDragAndDrop`)
+
+## [2.0.1] - 2025-10-09
+
+### Fixed
+- Documentation updates and minor bug fixes
+
+## [2.0.0] - 2025-10-08
+
+### Added - Major Feature: Scroll-to-Expand & Interactive Snap Points
+
+#### Scroll-to-Expand Features
+- **Natural Scrolling**: Expand/collapse sheet by scrolling within content
+- **Velocity Detection**: Fast swipes jump multiple snap points or to extremes
+- **Smart Boundaries**: Scroll up at top to collapse, scroll down to expand
+- **New Props**:
+  - `enableScrollToExpand`: Enable/disable scroll expansion (default: true)
+  - `scrollExpandThreshold`: Pixels to scroll before triggering snap (default: 50)
+- **New Ref Methods**:
+  - `handleScroll`: Process scroll events for expansion
+  - `handleScrollBeginDrag`: Track scroll gesture start
+  - `handleScrollEndDrag`: Detect pull-down gestures at top
+
+#### Interactive Snap Points
+- **Flexible Definition**: Support for percentage strings (e.g., "50%") and SharedValue
+- **Smooth Transitions**: Bezier curve easing for natural movement
+- **Keyboard Awareness**: Snap points adjust when keyboard appears
+- **Performance**: All animations use native driver at 60fps
+
+### Breaking Changes
+- `snapPoints` prop now accepts `(string | number)[]` instead of just `number[]`
+
 ## [1.1.0] - 2025-10-08
 
 ### Added - Major Feature: Snap Points Implementation

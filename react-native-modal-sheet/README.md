@@ -103,6 +103,25 @@ import { ScrollView } from 'react-native';
 </ModalSheet>
 ```
 
+### With Drag & Drop Support (NEW in v2.1.0!)
+
+```tsx
+import DraggableFlatList from 'react-native-draggable-flatlist';
+
+<ModalSheet
+  ref={sheetRef}
+  height={500}
+  enableDragAndDrop={true} // Automatically wraps in GestureHandlerRootView
+>
+  <DraggableFlatList
+    data={items}
+    renderItem={renderItem}
+    keyExtractor={(item) => item.key}
+    onDragEnd={({ data }) => setItems(data)}
+  />
+</ModalSheet>
+```
+
 ## 📚 API Reference
 
 ### Props
@@ -115,6 +134,9 @@ import { ScrollView } from 'react-native';
 | `initialSnapIndex` | `number` | `0` | Which snap point to open to initially |
 | `enableScrollToExpand` | `boolean` | `true` | Enable scroll-to-expand behavior |
 | `scrollExpandThreshold` | `number` | `50` | Pixels to scroll before triggering transition |
+| `enableDragAndDrop` | `boolean` | `false` | Enable automatic GestureHandlerRootView wrapping for gesture components |
+| `avoidKeyboard` | `boolean` | `false` | Enable keyboard avoidance to push sheet up when keyboard appears |
+| `keyboardOffset` | `number` | `0` | Additional offset when keyboard is shown (in pixels) |
 | `onSnapPointChange` | `(index: number) => void` | - | Callback when snap point changes |
 | `onClose` | `() => void` | - | Callback when the sheet is closed |
 | `onOpen` | `() => void` | - | Callback when the sheet is opened |
