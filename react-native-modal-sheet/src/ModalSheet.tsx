@@ -259,6 +259,7 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
     const touchStartY = useRef(0);
     const touchStartTranslateY = useRef(0);
     const isDragging = useRef(false);
+    const isMouseDragging = useRef(false);
 
     // Scroll tracking for expansion
     const lastScrollY = useRef(0);
@@ -617,6 +618,157 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
       });
     }, [animationDuration, screenHeight, onClose, translateY, backdropOpacityAnim]);
 
+    // Handle mouse events for web platform
+    const handleMouseDown = useCallback(
+      (e: any) => {
+        // Prevent default to avoid text selection during drag
+        e.preventDefault?.();
+
+        // Prevent if animating
+        if (isAnimating) return;
+
+        const pageY = e.pageY || e.clientY;
+        touchStartY.current = pageY;
+        touchStartTranslateY.current = (translateY as any)._value || 0;
+        isMouseDragging.current = true;
+      },
+      [translateY, isAnimating]
+    );
+
+    const handleMouseMove = useCallback(
+      (e: any) => {
+        if (!isMouseDragging.current) return;
+
+        const pageY = e.pageY || e.clientY;
+        const deltaY = pageY - touchStartY.current;
+        const newTranslateY = touchStartTranslateY.current + deltaY;
+
+        // If using snap points
+        if (snapPointsInPixels && snapPointsInPixels.length > 0) {
+          const maxSnapTranslateY = getSnapTranslateY(snapPointsInPixels.length - 1);
+
+          // Only prevent swiping UP (negative deltaY) when at maximum height
+          if (
+            currentSnapIndex === snapPointsInPixels.length - 1 &&
+            newTranslateY < maxSnapTranslateY
+          ) {
+            // Lock at maximum height
+            translateY.setValue(maxSnapTranslateY);
+            return;
+          }
+        }
+
+        // For non-snap mode, prevent upward dragging beyond 0
+        if (!snapPointsInPixels && newTranslateY < 0) {
+          translateY.setValue(0);
+          return;
+        }
+
+        // Apply translateY for immediate visual feedback during drag
+        translateY.setValue(newTranslateY);
+      },
+      [translateY, snapPointsInPixels, currentSnapIndex, getSnapTranslateY]
+    );
+
+    const handleMouseUp = useCallback(
+      (e: any) => {
+        if (!isMouseDragging.current) return;
+        isMouseDragging.current = false;
+
+        const pageY = e.pageY || e.clientY;
+        const currentTranslateY = (translateY as any)._value || 0;
+
+        // Handle snap points behavior
+        if (snapPointsInPixels && snapPointsInPixels.length > 0) {
+          const target = findTargetSnapIndex(currentTranslateY);
+
+          if (target === 'close') {
+            close();
+            return;
+          }
+
+          // Animate to target snap point
+          animateToSnapPoint(target);
+        } else {
+          const deltaY = pageY - touchStartY.current;
+          // Original behavior without snap points
+          const isSwipeDown = deltaY > dragThreshold;
+
+          if (isSwipeDown && deltaY > 0) {
+            Animated.parallel([
+              Animated.timing(backdropOpacityAnim, {
+                toValue: 0,
+                duration: 50,
+                useNativeDriver: true,
+              }),
+              Animated.timing(translateY, {
+                toValue: screenHeight + 100,
+                duration: 50,
+                useNativeDriver: true,
+              }),
+            ]).start(() => {
+              setTimeout(() => {
+                setVisible(false);
+                onClose?.();
+              }, 0);
+            });
+          } else {
+            Animated.timing(translateY, {
+              toValue: 0,
+              duration: 50,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true,
+            }).start();
+          }
+        }
+      },
+      [
+        snapPointsInPixels,
+        findTargetSnapIndex,
+        animateToSnapPoint,
+        close,
+        translateY,
+        dragThreshold,
+        backdropOpacityAnim,
+        screenHeight,
+        onClose,
+      ]
+    );
+
+    // Add global mouse event listeners for web platform
+    useEffect(() => {
+      // Only set up listeners on web platform
+      if (
+        Platform.OS === 'web' &&
+        typeof globalThis !== 'undefined' &&
+        (globalThis as any).document
+      ) {
+        const handleGlobalMouseUp = (e: MouseEvent) => {
+          if (isMouseDragging.current) {
+            handleMouseUp(e);
+          }
+        };
+
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+          if (isMouseDragging.current) {
+            handleMouseMove(e);
+          }
+        };
+
+        const doc = (globalThis as any).document;
+        doc.addEventListener('mouseup', handleGlobalMouseUp);
+        doc.addEventListener('mousemove', handleGlobalMouseMove);
+
+        return () => {
+          doc.removeEventListener('mouseup', handleGlobalMouseUp);
+          doc.removeEventListener('mousemove', handleGlobalMouseMove);
+        };
+      }
+
+      // Return undefined for all other cases
+      return undefined;
+    }, [handleMouseUp, handleMouseMove]);
+
     // Handle touch end
     const handleTouchEnd = useCallback(
       (e: GestureResponderEvent) => {
@@ -914,10 +1066,26 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
           aria-hidden={sheetAriaProps['aria-hidden'] ?? false}
         >
           <View
-            style={styles.handleContainer}
+            style={[
+              styles.handleContainer,
+              Platform.OS === 'web' && {
+                cursor: (isMouseDragging.current ? 'grabbing' : 'grab') as any,
+                // @ts-ignore: Web-specific style properties
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+              },
+            ]}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            {...(Platform.OS === 'web'
+              ? {
+                  onMouseDown: handleMouseDown,
+                  onMouseMove: handleMouseMove,
+                  onMouseUp: handleMouseUp,
+                  onMouseLeave: handleMouseUp, // Handle mouse leaving the area
+                }
+              : {})}
           >
             {showHandle && (
               <Pressable
@@ -929,6 +1097,7 @@ const ModalSheet = forwardRef<ModalSheetRef, ModalSheetProps>(
                   {
                     backgroundColor: handleColor,
                     opacity: pressed ? 0.6 : 1,
+                    cursor: Platform.OS === 'web' ? 'pointer' : undefined,
                   },
                 ]}
               />
