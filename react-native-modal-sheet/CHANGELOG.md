@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.1.1] - 2025-10-10
+## [2.1.2] - 2025-10-10
 
 ### Fixed
 - Restored original single-file architecture to resolve module export issues
 - Fixed "Element type is invalid" error that occurred with modular structure
+- Cleaned build artifacts to ensure correct package distribution
+
+## [2.1.1] - 2025-10-10
+
+### Changed
+- Attempted modular refactoring (reverted in 2.1.2 due to export issues)
 
 ## [2.1.0] - 2025-10-10
 
