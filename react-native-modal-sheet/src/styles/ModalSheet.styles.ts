@@ -1,4 +1,12 @@
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
+
+// On the New Architecture (Fabric/Yoga), an absolutely-positioned view relying
+// only on StyleSheet.absoluteFillObject (inset 0, no explicit size) inside a
+// flex container can collapse to zero measured size. That makes the backdrop
+// both invisible (no dim overlay) and unpressable (tap-outside-to-close stops
+// working), while the in-flow sheet still renders. Pinning explicit window
+// dimensions keeps the backdrop filling the screen on both architectures.
+const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 
 export const modalSheetStyles = StyleSheet.create({
   container: {
@@ -7,10 +15,14 @@ export const modalSheetStyles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
   },
   backdropAnimated: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'black',
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
   },
   sheet: {
     paddingHorizontal: 20,
